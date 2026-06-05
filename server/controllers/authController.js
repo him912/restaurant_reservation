@@ -1,4 +1,6 @@
 const User = require("../models/User");
+const Profile = require("../models/Profile");
+
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
@@ -34,6 +36,10 @@ const registerUser = async (req, res) => {
       username,
       email,
       password: hashedPassword,
+    });
+
+    await Profile.create({
+      user: user._id,
     });
 
     res.status(201).json({
@@ -114,11 +120,75 @@ const loginUser = async (req, res) => {
 // ================= GET USER PROFILE =================
 const getUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("-password");
+    const profile = await Profile.findOne({ user: req.user.id }).populate(
+      "user",
+      "username email",
+    );
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: "Profile not found",
+      });
+    }
 
     res.status(200).json({
       success: true,
-      data: user,
+      data: {
+        username: profile.user.username,
+        email: profile.user.email,
+        fullName: profile.fullName,
+        phoneNumber: profile.phoneNumber,
+        profileImage: profile.profileImage,
+        favoriteCuisines: profile.favoriteCuisines,
+        dietaryPreferences: profile.dietaryPreferences,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= UPDATE USER PROFILE =================
+const updateUserProfile = async (req, res) => {
+  try {
+    const {
+      fullName,
+      phoneNumber,
+      profileImage,
+      favoriteCuisines,
+      dietaryPreferences,
+    } = req.body;
+
+    const update = {};
+    if (fullName !== undefined) update.fullName = fullName;
+    if (phoneNumber !== undefined) update.phoneNumber = phoneNumber;
+    if (profileImage !== undefined) update.profileImage = profileImage;
+    if (favoriteCuisines !== undefined)
+      update.favoriteCuisines = favoriteCuisines;
+    if (dietaryPreferences !== undefined)
+      update.dietaryPreferences = dietaryPreferences;
+
+    const profile = await Profile.findOneAndUpdate(
+      { user: req.user.id },
+      { $set: update, $setOnInsert: { user: req.user.id } },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    ).populate("user", "username email");
+
+    res.status(200).json({
+      success: true,
+      data: {
+        username: profile.user.username,
+        email: profile.user.email,
+        fullName: profile.fullName,
+        phoneNumber: profile.phoneNumber,
+        profileImage: profile.profileImage,
+        favoriteCuisines: profile.favoriteCuisines,
+        dietaryPreferences: profile.dietaryPreferences,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -132,4 +202,5 @@ module.exports = {
   registerUser,
   loginUser,
   getUserProfile,
+  updateUserProfile,
 };

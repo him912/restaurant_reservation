@@ -12,7 +12,9 @@ const app = express();
 app.use(express.json());
 
 //Routes
-app.use("/api/auth", require("./routes/authRoutes"));
+app.use("/api/", require("./routes/authRoutes"));
+
+app.use("/api/restaurants", require("./routes/restaurantRoute"));
 
 app.get("/", (req, res) => {
   res.send("Auth API Running");
