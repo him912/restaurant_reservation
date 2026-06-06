@@ -56,15 +56,123 @@ exports.createRestaurant = async (req, res) => {
   }
 };
 
+// Helper to safely build regular expressions from query text
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 // ================= GET ALL RESTAURANTS =================
 exports.getAllRestaurants = async (req, res) => {
   try {
-    const restaurants = await Restaurant.find({ isActive: true });
+    const {
+      search,
+      city,
+      cuisineType,
+      priceRange,
+      ratingMin,
+      ratingMax,
+      capacityMin,
+      capacityMax,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+      page = 1,
+      limit = 20,
+    } = req.query;
+
+    const query = { isActive: true };
+
+    if (search) {
+      const regex = new RegExp(escapeRegExp(search), "i");
+      query.$or = [
+        { name: regex },
+        { description: regex },
+        { city: regex },
+        { address: regex },
+        { cuisineType: regex },
+      ];
+    }
+
+    if (city) {
+      query.city = new RegExp(`^${escapeRegExp(city)}$`, "i");
+    }
+
+    if (cuisineType) {
+      const cuisines = cuisineType
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      if (cuisines.length) {
+        query.cuisineType = { $in: cuisines };
+      }
+    }
+
+    if (priceRange) {
+      const prices = priceRange
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      if (prices.length) {
+        query.priceRange = { $in: prices };
+      }
+    }
+
+    if (ratingMin || ratingMax) {
+      query.rating = {};
+      if (ratingMin) query.rating.$gte = Number(ratingMin);
+      if (ratingMax) query.rating.$lte = Number(ratingMax);
+    }
+
+    if (capacityMin || capacityMax) {
+      query.capacity = {};
+      if (capacityMin) query.capacity.$gte = Number(capacityMin);
+      if (capacityMax) query.capacity.$lte = Number(capacityMax);
+    }
+
+    const sortFields = ["name", "rating", "priceRange", "city", "createdAt"];
+    const sortDirection = sortOrder === "asc" ? 1 : -1;
+    const sort = sortFields.includes(sortBy)
+      ? { [sortBy]: sortDirection }
+      : { createdAt: -1 };
+
+    const pageNumber = Number(page) > 0 ? Number(page) : 1;
+    const limitNumber = Number(limit) > 0 ? Number(limit) : 20;
+
+    const total = await Restaurant.countDocuments(query);
+    const restaurants = await Restaurant.find(query)
+      .sort(sort)
+      .skip((pageNumber - 1) * limitNumber)
+      .limit(limitNumber);
 
     res.status(200).json({
       success: true,
+      total,
+      page: pageNumber,
+      limit: limitNumber,
       count: restaurants.length,
       data: restaurants,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= GET RESTAURANT FILTER VALUES =================
+exports.getRestaurantFilters = async (req, res) => {
+  try {
+    const [cities, cuisines, priceRanges] = await Promise.all([
+      Restaurant.distinct("city", { isActive: true }),
+      Restaurant.distinct("cuisineType", { isActive: true }),
+      Restaurant.distinct("priceRange", { isActive: true }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        cities,
+        cuisines,
+        priceRanges,
+      },
     });
   } catch (error) {
     res.status(500).json({

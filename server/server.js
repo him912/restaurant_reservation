@@ -13,8 +13,8 @@ app.use(express.json());
 
 //Routes
 app.use("/api/", require("./routes/authRoutes"));
-
 app.use("/api/restaurants", require("./routes/restaurantRoute"));
+app.use("/api/reservations", require("./routes/reservationRoute"));
 
 app.get("/", (req, res) => {
   res.send("Auth API Running");
