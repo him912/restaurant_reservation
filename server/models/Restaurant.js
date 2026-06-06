@@ -1,7 +1,38 @@
 const mongoose = require("mongoose");
 
+const menuItemSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+  },
+  description: {
+    type: String,
+    default: "",
+  },
+  category: {
+    type: String,
+    default: "",
+  },
+  price: {
+    type: Number,
+    required: true,
+  },
+  image: {
+    type: String,
+    default: "",
+  },
+  available: {
+    type: Boolean,
+    default: true,
+  },
+});
+
 const restaurantSchema = new mongoose.Schema(
   {
+    ownerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
     name: {
       type: String,
       required: true,
@@ -23,6 +54,14 @@ const restaurantSchema = new mongoose.Schema(
     city: {
       type: String,
       required: true,
+    },
+    state: {
+      type: String,
+      default: "",
+    },
+    zipCode: {
+      type: String,
+      default: "",
     },
     phone: {
       type: String,
@@ -46,6 +85,12 @@ const restaurantSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    gallery: [
+      {
+        type: String,
+        default: "",
+      },
+    ],
     capacity: {
       type: Number,
       default: 0,
@@ -58,11 +103,18 @@ const restaurantSchema = new mongoose.Schema(
       type: String,
       default: "23:00",
     },
+    closedDays: [
+      {
+        type: String,
+        enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      },
+    ],
     priceRange: {
       type: String,
       enum: ["$", "$$", "$$$", "$$$$"],
       default: "$$",
     },
+    menuItems: [menuItemSchema],
     isActive: {
       type: Boolean,
       default: true,

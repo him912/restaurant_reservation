@@ -97,6 +97,7 @@ const loginUser = async (req, res) => {
       {
         id: user._id,
         email: user.email,
+        role: user.role,
       },
       process.env.JWT_SECRET,
       {
@@ -108,6 +109,11 @@ const loginUser = async (req, res) => {
       success: true,
       message: "Login successful",
       token,
+      data: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+      },
     });
   } catch (error) {
     res.status(500).json({

@@ -1,9 +1,10 @@
 const Review = require("../models/Review");
 const Restaurant = require("../models/Restaurant");
+const mongoose = require("mongoose");
 
 exports.createReview = async (req, res) => {
   try {
-    const { restaurantId, rating, comment } = req.body;
+    const { restaurantId, rating, comment, photos } = req.body;
     const userId = req.user?.id;
 
     if (!restaurantId || rating === undefined) {
@@ -41,12 +42,15 @@ exports.createReview = async (req, res) => {
       userId,
       rating,
       comment,
+      photos: Array.isArray(photos) ? photos.filter((p) => p) : [],
     });
+
+    const populatedReview = await review.populate("userId", "username email");
 
     res.status(201).json({
       success: true,
       message: "Review submitted successfully",
-      data: review,
+      data: populatedReview,
     });
   } catch (error) {
     res.status(500).json({
@@ -70,6 +74,7 @@ exports.getReviewsByRestaurant = async (req, res) => {
 
     const reviews = await Review.find({ restaurantId })
       .populate("userId", "username email")
+      .populate("responses.userId", "username email")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -89,7 +94,7 @@ exports.updateReview = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
-    const { rating, comment } = req.body;
+    const { rating, comment, photos } = req.body;
 
     const review = await Review.findById(id);
     if (!review) {
@@ -120,12 +125,17 @@ exports.updateReview = async (req, res) => {
       review.comment = comment;
     }
 
+    if (photos !== undefined && Array.isArray(photos)) {
+      review.photos = photos.filter((p) => p);
+    }
+
     await review.save();
+    const populatedReview = await review.populate("userId", "username email");
 
     res.status(200).json({
       success: true,
       message: "Review updated successfully",
-      data: review,
+      data: populatedReview,
     });
   } catch (error) {
     res.status(500).json({
@@ -160,6 +170,170 @@ exports.deleteReview = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Review deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+exports.addReviewResponse = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comment } = req.body;
+    const userId = req.user?.id;
+
+    if (!comment || !comment.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Response comment is required",
+      });
+    }
+
+    const review = await Review.findById(id).populate("restaurantId");
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: "Review not found",
+      });
+    }
+
+    if (!review.restaurantId.ownerId || review.restaurantId.ownerId.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Only restaurant owner can respond to reviews",
+      });
+    }
+
+    const response = {
+      _id: new mongoose.Types.ObjectId(),
+      userId,
+      comment: comment.trim(),
+      createdAt: new Date(),
+    };
+
+    review.responses.push(response);
+    await review.save();
+
+    const populatedReview = await review.populate(
+      "responses.userId",
+      "username email"
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Response added successfully",
+      data: populatedReview,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+exports.updateReviewResponse = async (req, res) => {
+  try {
+    const { id, responseId } = req.params;
+    const { comment } = req.body;
+    const userId = req.user?.id;
+
+    if (!comment || !comment.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Response comment is required",
+      });
+    }
+
+    const review = await Review.findById(id).populate("restaurantId");
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: "Review not found",
+      });
+    }
+
+    const response = review.responses.find((r) => r._id.toString() === responseId);
+    if (!response) {
+      return res.status(404).json({
+        success: false,
+        message: "Response not found",
+      });
+    }
+
+    if (response.userId.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to update this response",
+      });
+    }
+
+    response.comment = comment.trim();
+    await review.save();
+
+    const populatedReview = await review.populate(
+      "responses.userId",
+      "username email"
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Response updated successfully",
+      data: populatedReview,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+exports.deleteReviewResponse = async (req, res) => {
+  try {
+    const { id, responseId } = req.params;
+    const userId = req.user?.id;
+
+    const review = await Review.findById(id);
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: "Review not found",
+      });
+    }
+
+    const response = review.responses.find((r) => r._id.toString() === responseId);
+    if (!response) {
+      return res.status(404).json({
+        success: false,
+        message: "Response not found",
+      });
+    }
+
+    if (response.userId.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to delete this response",
+      });
+    }
+
+    review.responses = review.responses.filter(
+      (r) => r._id.toString() !== responseId
+    );
+    await review.save();
+
+    const populatedReview = await review.populate(
+      "responses.userId",
+      "username email"
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Response deleted successfully",
+      data: populatedReview,
     });
   } catch (error) {
     res.status(500).json({

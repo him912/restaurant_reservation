@@ -266,6 +266,295 @@ exports.deleteRestaurant = async (req, res) => {
   }
 };
 
+// ================= GET OWN RESTAURANT (OWNER) =================
+exports.getOwnRestaurant = async (req, res) => {
+  try {
+    const ownerId = req.user?.id;
+
+    const restaurant = await Restaurant.findOne({ ownerId });
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "You don't own any restaurant",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: restaurant,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= UPDATE RESTAURANT PROFILE (OWNER) =================
+exports.updateRestaurantProfile = async (req, res) => {
+  try {
+    const ownerId = req.user?.id;
+    const {
+      name,
+      description,
+      cuisineType,
+      address,
+      city,
+      state,
+      zipCode,
+      phone,
+      email,
+      website,
+      restaurantImage,
+      capacity,
+      openingTime,
+      closingTime,
+      closedDays,
+      priceRange,
+    } = req.body;
+
+    const restaurant = await Restaurant.findOne({ ownerId });
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "You don't own any restaurant",
+      });
+    }
+
+    const update = {};
+    if (name !== undefined) update.name = name;
+    if (description !== undefined) update.description = description;
+    if (cuisineType !== undefined) update.cuisineType = cuisineType;
+    if (address !== undefined) update.address = address;
+    if (city !== undefined) update.city = city;
+    if (state !== undefined) update.state = state;
+    if (zipCode !== undefined) update.zipCode = zipCode;
+    if (phone !== undefined) update.phone = phone;
+    if (email !== undefined) update.email = email;
+    if (website !== undefined) update.website = website;
+    if (restaurantImage !== undefined) update.restaurantImage = restaurantImage;
+    if (capacity !== undefined) update.capacity = capacity;
+    if (openingTime !== undefined) update.openingTime = openingTime;
+    if (closingTime !== undefined) update.closingTime = closingTime;
+    if (closedDays !== undefined) update.closedDays = closedDays;
+    if (priceRange !== undefined) update.priceRange = priceRange;
+
+    const updatedRestaurant = await Restaurant.findOneAndUpdate({ ownerId }, update, {
+      returnDocument: "after",
+      runValidators: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Restaurant profile updated successfully",
+      data: updatedRestaurant,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= ADD MENU ITEM =================
+exports.addMenuItem = async (req, res) => {
+  try {
+    const ownerId = req.user?.id;
+    const { name, description, category, price, image } = req.body;
+
+    if (!name || price === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "name and price are required",
+      });
+    }
+
+    const restaurant = await Restaurant.findOne({ ownerId });
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "You don't own any restaurant",
+      });
+    }
+
+    const menuItem = {
+      name,
+      description: description || "",
+      category: category || "",
+      price,
+      image: image || "",
+      available: true,
+    };
+
+    restaurant.menuItems.push(menuItem);
+    await restaurant.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Menu item added successfully",
+      data: restaurant,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= UPDATE MENU ITEM =================
+exports.updateMenuItem = async (req, res) => {
+  try {
+    const ownerId = req.user?.id;
+    const { itemId } = req.params;
+    const { name, description, category, price, image, available } = req.body;
+
+    const restaurant = await Restaurant.findOne({ ownerId });
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "You don't own any restaurant",
+      });
+    }
+
+    const menuItem = restaurant.menuItems.find((item) => item._id.toString() === itemId);
+    if (!menuItem) {
+      return res.status(404).json({
+        success: false,
+        message: "Menu item not found",
+      });
+    }
+
+    if (name !== undefined) menuItem.name = name;
+    if (description !== undefined) menuItem.description = description;
+    if (category !== undefined) menuItem.category = category;
+    if (price !== undefined) menuItem.price = price;
+    if (image !== undefined) menuItem.image = image;
+    if (available !== undefined) menuItem.available = available;
+
+    await restaurant.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Menu item updated successfully",
+      data: restaurant,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= DELETE MENU ITEM =================
+exports.deleteMenuItem = async (req, res) => {
+  try {
+    const ownerId = req.user?.id;
+    const { itemId } = req.params;
+
+    const restaurant = await Restaurant.findOne({ ownerId });
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "You don't own any restaurant",
+      });
+    }
+
+    restaurant.menuItems = restaurant.menuItems.filter(
+      (item) => item._id.toString() !== itemId,
+    );
+    await restaurant.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Menu item deleted successfully",
+      data: restaurant,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= ADD GALLERY IMAGE =================
+exports.addGalleryImage = async (req, res) => {
+  try {
+    const ownerId = req.user?.id;
+    const { imageUrl } = req.body;
+
+    if (!imageUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "imageUrl is required",
+      });
+    }
+
+    const restaurant = await Restaurant.findOne({ ownerId });
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "You don't own any restaurant",
+      });
+    }
+
+    restaurant.gallery.push(imageUrl);
+    await restaurant.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Gallery image added successfully",
+      data: restaurant,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= DELETE GALLERY IMAGE =================
+exports.deleteGalleryImage = async (req, res) => {
+  try {
+    const ownerId = req.user?.id;
+    const { imageUrl } = req.body;
+
+    if (!imageUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "imageUrl is required",
+      });
+    }
+
+    const restaurant = await Restaurant.findOne({ ownerId });
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "You don't own any restaurant",
+      });
+    }
+
+    restaurant.gallery = restaurant.gallery.filter((img) => img !== imageUrl);
+    await restaurant.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Gallery image deleted successfully",
+      data: restaurant,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 // module.exports = {
 //   createRestaurant,
 //   getAllRestaurants,

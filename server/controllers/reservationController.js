@@ -1,5 +1,6 @@
 const Restaurant = require("../models/Restaurant");
 const Reservation = require("../models/Reservation");
+const { broadcastAvailabilityUpdate } = require("../sockets/availabilitySocket");
 
 const parseDate = (dateString) => {
   if (!dateString) return null;
@@ -29,6 +30,7 @@ exports.createReservation = async (req, res) => {
   try {
     const { restaurantId, date, time, partySize } = req.body;
     const userId = req.user?.id;
+    const io = req.app.get("io");
 
     if (!restaurantId || !date || !time || !partySize) {
       return res.status(400).json({
@@ -76,6 +78,11 @@ exports.createReservation = async (req, res) => {
       partySize,
     });
 
+    // Broadcast availability update to all subscribed clients
+    if (io) {
+      broadcastAvailabilityUpdate(io, restaurantId.toString(), date);
+    }
+
     res.status(201).json({
       success: true,
       message: "Reservation created successfully",
@@ -114,6 +121,7 @@ exports.updateReservation = async (req, res) => {
     const { id } = req.params;
     const userId = req.user?.id;
     const { restaurantId, date, time, partySize } = req.body;
+    const io = req.app.get("io");
 
     const reservation = await Reservation.findById(id);
     if (!reservation) {
@@ -171,11 +179,24 @@ exports.updateReservation = async (req, res) => {
       });
     }
 
+    const oldRestaurantId = reservation.restaurantId.toString();
+    const oldDate = reservation.date.toISOString().split("T")[0];
+
     reservation.restaurantId = updatedRestaurantId;
     reservation.date = updatedDate;
     reservation.time = updatedTime;
     reservation.partySize = updatedPartySize;
     await reservation.save();
+
+    // Broadcast availability updates for both old and new slots
+    if (io) {
+      broadcastAvailabilityUpdate(io, oldRestaurantId, oldDate);
+      broadcastAvailabilityUpdate(
+        io,
+        updatedRestaurantId.toString(),
+        updatedDate.toISOString().split("T")[0],
+      );
+    }
 
     res.status(200).json({
       success: true,
@@ -194,6 +215,7 @@ exports.deleteReservation = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
+    const io = req.app.get("io");
 
     const reservation = await Reservation.findById(id);
     if (!reservation) {
@@ -210,7 +232,15 @@ exports.deleteReservation = async (req, res) => {
       });
     }
 
+    const restaurantId = reservation.restaurantId.toString();
+    const date = reservation.date.toISOString().split("T")[0];
+
     await reservation.deleteOne();
+
+    // Broadcast availability update
+    if (io) {
+      broadcastAvailabilityUpdate(io, restaurantId, date);
+    }
 
     res.status(200).json({
       success: true,

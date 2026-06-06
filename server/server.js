@@ -2,14 +2,27 @@ const express = require("express");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const cors = require("cors");
+const http = require("http");
+const { Server } = require("socket.io");
+const { setupAvailabilitySocket } = require("./sockets/availabilitySocket");
 
 dotenv.config();
 
 connectDB();
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
 
 app.use(express.json());
+
+// Attach io to app for use in controllers
+app.set("io", io);
 
 //Routes
 app.use("/api/", require("./routes/authRoutes"));
@@ -17,6 +30,10 @@ app.use("/api/restaurants", require("./routes/restaurantRoute"));
 app.use("/api/reservations", require("./routes/reservationRoute"));
 app.use("/api/reviews", require("./routes/reviewRoute"));
 app.use("/api/upload", require("./routes/uploadRoute"));
+app.use("/api/admin", require("./routes/adminRoute"));
+
+// Setup Socket.io handlers
+setupAvailabilitySocket(io);
 
 app.get("/", (req, res) => {
   res.send("Auth API Running");
@@ -24,6 +41,6 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

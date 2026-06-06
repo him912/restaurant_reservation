@@ -22,6 +22,26 @@ const reviewSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    photos: [
+      {
+        type: String,
+        default: "",
+      },
+    ],
+    responses: [
+      {
+        _id: mongoose.Schema.Types.ObjectId,
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        comment: String,
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   {
     timestamps: true,
