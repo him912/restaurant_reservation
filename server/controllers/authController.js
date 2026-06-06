@@ -175,7 +175,11 @@ const updateUserProfile = async (req, res) => {
     const profile = await Profile.findOneAndUpdate(
       { user: req.user.id },
       { $set: update, $setOnInsert: { user: req.user.id } },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
+      {
+        returnDocument: "after",
+        upsert: true,
+        setDefaultsOnInsert: true,
+      },
     ).populate("user", "username email");
 
     res.status(200).json({

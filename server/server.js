@@ -15,6 +15,8 @@ app.use(express.json());
 app.use("/api/", require("./routes/authRoutes"));
 app.use("/api/restaurants", require("./routes/restaurantRoute"));
 app.use("/api/reservations", require("./routes/reservationRoute"));
+app.use("/api/reviews", require("./routes/reviewRoute"));
+app.use("/api/upload", require("./routes/uploadRoute"));
 
 app.get("/", (req, res) => {
   res.send("Auth API Running");
