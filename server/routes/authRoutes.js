@@ -3,6 +3,7 @@ const router = express.Router();
 
 const {
   registerUser,
+  registerAdmin,
   loginUser,
   getUserProfile,
   updateUserProfile,
@@ -18,6 +19,9 @@ const { protect } = require("../middleware/authMiddleware");
 
 // Register
 router.post("/auth/register", registerUser);
+
+// Register admin (requires ADMIN_CREATE_SECRET)
+router.post("/auth/register-admin", registerAdmin);
 
 // Login
 router.post("/auth/login", loginUser);

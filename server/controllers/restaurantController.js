@@ -555,10 +555,3 @@ exports.deleteGalleryImage = async (req, res) => {
   }
 };
 
-// module.exports = {
-//   createRestaurant,
-//   getAllRestaurants,
-//   getRestaurantById,
-//   updateRestaurant,
-//   deleteRestaurant,
-// };

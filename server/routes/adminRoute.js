@@ -12,6 +12,7 @@ const {
   getAllUsersAdmin,
   updateUserRole,
   getRestaurantStats,
+  assignOwnerToRestaurant,
 } = require("../controllers/adminController");
 
 // Dashboard
@@ -21,6 +22,12 @@ router.get("/dashboard", protect, adminOnly, getDashboardStats);
 router.get("/restaurants", protect, adminOnly, getAllRestaurantsAdmin);
 router.put("/restaurants/:id/status", protect, adminOnly, toggleRestaurantStatus);
 router.get("/restaurants/:id/stats", protect, adminOnly, getRestaurantStats);
+router.put(
+  "/restaurants/:id/assign-owner",
+  protect,
+  adminOnly,
+  assignOwnerToRestaurant,
+);
 
 // Review management
 router.get("/reviews", protect, adminOnly, getAllReviewsAdmin);

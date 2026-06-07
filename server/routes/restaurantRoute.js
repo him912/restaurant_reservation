@@ -17,7 +17,7 @@ const {
   deleteGalleryImage,
 } = require("../controllers/restaurantController");
 const { getRestaurantAvailability } = require("../controllers/reservationController");
-const { protect } = require("../middleware/authMiddleware");
+const { protect, ownerOnly } = require("../middleware/authMiddleware");
 
 // Create restaurant
 router.post("/", protect, createRestaurant);
@@ -26,19 +26,19 @@ router.post("/", protect, createRestaurant);
 router.get("/filters", protect, getRestaurantFilters);
 
 // Owner routes - get own restaurant
-router.get("/own/details", protect, getOwnRestaurant);
+router.get("/own/details", protect, ownerOnly, getOwnRestaurant);
 
 // Owner routes - manage profile
-router.put("/own/profile", protect, updateRestaurantProfile);
+router.put("/own/profile", protect, ownerOnly, updateRestaurantProfile);
 
 // Owner routes - menu management
-router.post("/own/menu", protect, addMenuItem);
-router.put("/own/menu/:itemId", protect, updateMenuItem);
-router.delete("/own/menu/:itemId", protect, deleteMenuItem);
+router.post("/own/menu", protect, ownerOnly, addMenuItem);
+router.put("/own/menu/:itemId", protect, ownerOnly, updateMenuItem);
+router.delete("/own/menu/:itemId", protect, ownerOnly, deleteMenuItem);
 
 // Owner routes - gallery management
-router.post("/own/gallery", protect, addGalleryImage);
-router.delete("/own/gallery", protect, deleteGalleryImage);
+router.post("/own/gallery", protect, ownerOnly, addGalleryImage);
+router.delete("/own/gallery", protect, ownerOnly, deleteGalleryImage);
 
 // Get restaurant availability by date
 router.get("/:id/availability", protect, getRestaurantAvailability);

@@ -351,3 +351,54 @@ exports.getRestaurantStats = async (req, res) => {
     });
   }
 };
+
+// ================= ASSIGN OWNER TO RESTAURANT (ADMIN) =================
+exports.assignOwnerToRestaurant = async (req, res) => {
+  try {
+    const { id } = req.params; // restaurant id
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "userId is required",
+      });
+    }
+
+    const restaurant = await Restaurant.findById(id);
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "Restaurant not found",
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Ensure user has restaurant_owner role
+    if (user.role !== "restaurant_owner") {
+      user.role = "restaurant_owner";
+      await user.save();
+    }
+
+    restaurant.ownerId = user._id;
+    await restaurant.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Owner assigned to restaurant",
+      data: restaurant,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
