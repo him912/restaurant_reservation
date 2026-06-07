@@ -23,7 +23,7 @@ const { protect, ownerOnly } = require("../middleware/authMiddleware");
 router.post("/", protect, createRestaurant);
 
 // Get available filter values for restaurants
-router.get("/filters", protect, getRestaurantFilters);
+router.get("/filters", getRestaurantFilters);
 
 // Owner routes - get own restaurant
 router.get("/own/details", protect, ownerOnly, getOwnRestaurant);
@@ -41,13 +41,13 @@ router.post("/own/gallery", protect, ownerOnly, addGalleryImage);
 router.delete("/own/gallery", protect, ownerOnly, deleteGalleryImage);
 
 // Get restaurant availability by date
-router.get("/:id/availability", protect, getRestaurantAvailability);
+router.get("/:id/availability", getRestaurantAvailability);
 
 // Get all restaurants with search and filters
-router.get("/", protect, getAllRestaurants);
+router.get("/", getAllRestaurants);
 
 // Get restaurant by ID
-router.get("/:id", protect, getRestaurantById);
+router.get("/:id", getRestaurantById);
 
 // Update restaurant
 router.put("/:id", protect, updateRestaurant);

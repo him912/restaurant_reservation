@@ -2,6 +2,15 @@ const Review = require("../models/Review");
 const Restaurant = require("../models/Restaurant");
 const mongoose = require("mongoose");
 
+const updateRestaurantRating = async (restaurantId) => {
+  const reviews = await Review.find({ restaurantId });
+  const rating = reviews.length
+    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+    : 0;
+
+  await Restaurant.findByIdAndUpdate(restaurantId, { rating }, { returnDocument: "after" });
+};
+
 exports.createReview = async (req, res) => {
   try {
     const { restaurantId, rating, comment, photos } = req.body;
@@ -45,6 +54,7 @@ exports.createReview = async (req, res) => {
       photos: Array.isArray(photos) ? photos.filter((p) => p) : [],
     });
 
+    await updateRestaurantRating(restaurantId);
     const populatedReview = await review.populate("userId", "username email");
 
     res.status(201).json({
@@ -130,6 +140,7 @@ exports.updateReview = async (req, res) => {
     }
 
     await review.save();
+    await updateRestaurantRating(review.restaurantId);
     const populatedReview = await review.populate("userId", "username email");
 
     res.status(200).json({
@@ -165,7 +176,9 @@ exports.deleteReview = async (req, res) => {
       });
     }
 
+    const restaurantId = review.restaurantId;
     await review.deleteOne();
+    await updateRestaurantRating(restaurantId);
 
     res.status(200).json({
       success: true,

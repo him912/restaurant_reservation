@@ -14,7 +14,13 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
+      origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://localhost:5175",
+      "http://localhost:3000",
+      "https://sweet-centaur-8df9e0.netlify.app"
+    ],
     methods: ["GET", "POST"],
   },
 });

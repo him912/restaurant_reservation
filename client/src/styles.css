@@ -1,0 +1,302 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, system-ui, sans-serif;
+  background-color: #f4f6fb;
+  color: #1f2937;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body,
+html,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header,
+.app-footer {
+  padding: 1rem 2rem;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.brand a,
+nav a,
+.link-button {
+  color: #0f172a;
+  text-decoration: none;
+}
+
+nav a,
+.link-button {
+  margin-left: 1rem;
+}
+
+.link-button {
+  border: none;
+  background: transparent;
+  color: #2563eb;
+}
+
+.role-chip {
+  margin-left: 1rem;
+  padding: 0.25rem 0.6rem;
+  background: #e0f2fe;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+}
+
+.app-main {
+  flex: 1;
+  padding: 2rem;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.hero {
+  padding: 2rem;
+  margin-bottom: 2rem;
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  color: white;
+  border-radius: 1rem;
+}
+
+.hero h1 {
+  margin: 0 0 0.5rem;
+}
+
+.filters-panel,
+.restaurant-grid,
+.restaurant-hero,
+.menu-gallery,
+.reservation-panel,
+.reviews-section {
+  margin-bottom: 2rem;
+}
+
+.filters-panel {
+  display: grid;
+  gap: 1rem;
+  background: white;
+  padding: 1.5rem;
+  border-radius: 1rem;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.filters-panel input,
+.filters-panel select,
+.auth-card input,
+.auth-card select {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem;
+}
+
+.restaurant-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.restaurant-card,
+.auth-card,
+.profile-card,
+.reservation-card,
+.availability-box,
+.review-list {
+  background: white;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.05);
+}
+
+.restaurant-card img,
+.restaurant-hero img,
+.review-photos img {
+  width: 100%;
+  border-radius: 1rem;
+  object-fit: cover;
+  max-height: 220px;
+}
+
+.card-content {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.card-meta,
+.restaurant-meta {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  color: #475569;
+  font-size: 0.95rem;
+}
+
+.card-tags small {
+  display: inline-block;
+  background: #e2e8f0;
+  color: #334155;
+  padding: 0.35rem 0.65rem;
+  border-radius: 9999px;
+  margin-right: 0.25rem;
+}
+
+.card-link,
+button[type="submit"],
+button[type="button"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem 1.1rem;
+  border-radius: 0.85rem;
+  border: none;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+}
+
+.card-link {
+  margin-top: 0.5rem;
+  background: #f8fafc;
+  color: #1f2937;
+}
+
+.menu-gallery {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.menu-gallery ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.menu-gallery li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.menu-gallery h2,
+.review-list h2 {
+  margin-top: 0;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.reservation-card label,
+.auth-card label {
+  display: block;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.status-message,
+.error-message {
+  margin-top: 1rem;
+  color: #b91c1c;
+}
+
+.review-item {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 1rem;
+}
+
+.review-item:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.review-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.review-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.review-responses {
+  margin-top: 0.75rem;
+  border-left: 3px solid #2563eb;
+  padding-left: 0.75rem;
+}
+
+.review-response {
+  background: #f8fafc;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+}
+
+.auth-page,
+.profile-page,
+.detail-page {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.auth-card,
+.profile-card,
+.availability-box {
+  max-width: 540px;
+  margin: 0 auto;
+}
+
+.app-footer {
+  text-align: center;
+  color: #64748b;
+}
