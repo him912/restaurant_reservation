@@ -14,7 +14,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-      origin: [
+    origin: [
       "http://localhost:5173",
       "http://localhost:5174",
       "http://localhost:5175",
@@ -25,6 +25,19 @@ const io = new Server(server, {
   },
 });
 
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://localhost:3000",
+    "https://sweet-centaur-8df9e0.netlify.app"
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+app.options("*", cors());
 app.use(express.json());
 
 // Attach io to app for use in controllers
