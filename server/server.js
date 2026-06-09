@@ -21,7 +21,7 @@ const io = new Server(server, {
       "http://localhost:3000",
       "https://sweet-centaur-8df9e0.netlify.app"
     ],
-    methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 
