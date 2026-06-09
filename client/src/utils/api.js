@@ -14,6 +14,7 @@ export const getApi = () => {
 
 export const getAuthApi = () => {
   const token = getToken();
+  console.log("Creating auth API instance with token:", token);
   return axios.create({
     baseURL,
     headers: {

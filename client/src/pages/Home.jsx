@@ -43,7 +43,8 @@ function Home() {
       setLoading(true);
       setError("");
       try {
-        const response = await getApi().get(`/restaurants?${query}`);
+        const path = query ? `/restaurants?${query}` : "/restaurants";
+        const response = await getApi().get(path);
         setRestaurants(response.data.data);
       } catch (err) {
         setError("Unable to load restaurants.");

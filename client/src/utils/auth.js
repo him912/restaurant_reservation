@@ -2,7 +2,7 @@ export const getToken = () => window.localStorage.getItem("reservation_token");
 export const getUserRole = () => window.localStorage.getItem("reservation_role");
 
 export const login = async ({ email, password }) => {
-  const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5009"}/api/auth/login`, {
+  const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5009"}/auth/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
