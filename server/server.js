@@ -11,6 +11,9 @@ dotenv.config();
 connectDB();
 
 const app = express();
+app.use(cors());
+app.use(express.json());
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -20,26 +23,27 @@ const io = new Server(server, {
       "http://localhost:5175",
       "http://localhost:3000",
       "https://restaurant-reservation-sandy-three.vercel.app/",
-      "https://sweet-centaur-8df9e0.netlify.app"
+      "https://sweet-centaur-8df9e0.netlify.app",
     ],
     credentials: true,
   },
 });
 
-app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:5175",
-    "http://localhost:3000",
-    "https://restaurant-reservation-sandy-three.vercel.app/",
-    "https://sweet-centaur-8df9e0.netlify.app"
-  ],
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-}));
-app.use(express.json());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://localhost:5175",
+      "http://localhost:3000",
+      "https://restaurant-reservation-sandy-three.vercel.app/",
+      "https://sweet-centaur-8df9e0.netlify.app",
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 
 // Attach io to app for use in controllers
 app.set("io", io);
