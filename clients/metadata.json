@@ -1,0 +1,6 @@
+{
+  "name": "Restaurant Reservation & Review Platform",
+  "description": "An elegant, interactive frontend platform for discovering restaurants, making real-time reservations, and reading or writing community reviews. Ready to be integrated with a MERN backend.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
