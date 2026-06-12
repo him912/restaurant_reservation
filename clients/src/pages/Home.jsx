@@ -19,13 +19,19 @@ export const Home = () => {
   // Gather unique cuisines & locations for filter dropdowns automatically
   const cuisinesList = useMemo(() => {
     const list = new Set();
-    restaurants.forEach(r => list.add(r.cuisine.split(' / ')[0])); // Simple match split
+    restaurants.forEach(r => {
+      if (r.cuisineType && Array.isArray(r.cuisineType)) {
+        r.cuisineType.forEach(cuisine => list.add(cuisine));
+      }
+    });
     return ['All', ...Array.from(list)];
   }, [restaurants]);
 
   const locationsList = useMemo(() => {
     const list = new Set();
-    restaurants.forEach(r => list.add(r.location));
+    restaurants.forEach(r => {
+      if (r.city) list.add(r.city);
+    });
     return ['All', ...Array.from(list)];
   }, [restaurants]);
 
@@ -52,14 +58,14 @@ export const Home = () => {
     return restaurants.filter(r => {
       const matchSearch =
         r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.cuisine.toLowerCase().includes(searchQuery.toLowerCase());
+        (r.description && r.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (r.cuisineType && r.cuisineType.some(c => c.toLowerCase().includes(searchQuery.toLowerCase())));
 
       const matchCuisine =
         selectedCuisine === 'All' ||
-        r.cuisine.toLowerCase().includes(selectedCuisine.toLowerCase());
+        (r.cuisineType && r.cuisineType.some(c => c.toLowerCase().includes(selectedCuisine.toLowerCase())));
 
-      const matchLocation = selectedLocation === 'All' || r.location === selectedLocation;
+      const matchLocation = selectedLocation === 'All' || r.city === selectedLocation;
 
       const matchPrice = selectedPrice === 'All' || r.priceRange === selectedPrice;
 
@@ -238,7 +244,7 @@ export const Home = () => {
                 id="restaurant-cards-grid"
               >
                 {filteredRestaurants.map(rest => (
-                  <motion.div key={rest.id} variants={itemVariants} className="h-full">
+                  <motion.div key={rest._id} variants={itemVariants} className="h-full">
                     <RestaurantCard restaurant={rest} />
                   </motion.div>
                 ))}

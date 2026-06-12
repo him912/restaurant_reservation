@@ -17,6 +17,7 @@ exports.createRestaurant = async (req, res) => {
       openingTime,
       closingTime,
       priceRange,
+      features,
     } = req.body;
 
     // Validation
@@ -41,6 +42,7 @@ exports.createRestaurant = async (req, res) => {
       openingTime,
       closingTime,
       priceRange,
+      features,
     });
 
     res.status(201).json({

@@ -115,6 +115,12 @@ const restaurantSchema = new mongoose.Schema(
       default: "$$",
     },
     menuItems: [menuItemSchema],
+    features: [
+      {
+        type: String,
+        default: "",
+      },
+    ],
     isActive: {
       type: Boolean,
       default: true,

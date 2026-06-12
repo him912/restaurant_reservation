@@ -35,10 +35,12 @@ export const Navbar = () => {
   const isActive = (path) => location.pathname === path;
 
   const handleRoleToggle = () => {
-    const currentRole = currentUser?.role || "user";
-    const nextRole = currentRole === "user" ? "user" : "owner";
-    switchUserRole(nextRole);
-    setIsOpen(false);
+    console.log(currentUser?.role);
+    const currentRole = currentUser?.role 
+    // || "user";
+    // const nextRole = currentRole === "user" ? "user" : "owner";
+    // switchUserRole(nextRole);
+    // setIsOpen(false);
   };
 
   return (
@@ -146,10 +148,10 @@ export const Navbar = () => {
                 title="Sandbox Switch role to test Customer and Owner flows"
               >
                 <ArrowLeftRight size={13} className="text-slate-500" />
-                <span>Test Role: </span>
+                <span>Role: </span>
                 <span className="font-extrabold uppercase tracking-wide text-[10px] text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100">
                   {currentUser
-                    ? currentUser.role === "customer"
+                    ? currentUser.role === "user"
                       ? "Customer"
                       : "Owner"
                     : "None"}

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import axios from "axios";
 import {
   INITIAL_RESTAURANTS,
   INITIAL_REVIEWS,
@@ -13,6 +14,19 @@ import {
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const API_URL = import.meta.env.VITE_API_URL;
+
+// Helper to get auth config for requests
+const getAuthConfig = () => {
+  const token = localStorage.getItem("restaurant_token");
+  return token
+    ? {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    : { headers: { "Content-Type": "application/json" } };
+};
 
 // Helper to initialize Local Storage
 const initLocalStorage = () => {
@@ -43,10 +57,14 @@ export const api = {
   // RESTAURANTS
   getRestaurants: async () => {
     try {
+      console.log(`Fetching restaurants from backend: ${API_URL}/restaurants/`);
       const response = await axios.get(`${API_URL}/restaurants/`, {
         headers: { "Content-Type": "application/json" },
       });
-      return response.data || [];
+      console.log("Fetched restaurants from backend:", response.data);
+      // Extract data array from the nested response structure
+      const data = response.data?.data || response.data || [];
+      return Array.isArray(data) ? data : [];
     } catch (err) {
       console.error("Failed to fetch restaurants from backend:", err);
       await delay(350);
@@ -54,6 +72,7 @@ export const api = {
       return data ? JSON.parse(data) : [];
     }
   },
+  
   getRestaurantById: async (id) => {
     try {
       const response = await axios.get(

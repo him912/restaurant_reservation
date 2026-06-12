@@ -103,11 +103,13 @@ export const RestaurantDetails = () => {
   const menuMap = useMemo(() => {
     if (!restaurant) return { Appetizers: [], Mains: [], Desserts: [], Drinks: [] };
     const initial = { Appetizers: [], Mains: [], Desserts: [], Drinks: [] };
-    restaurant.menu.forEach(item => {
-      if (initial[item.category]) {
-        initial[item.category].push(item);
-      }
-    });
+    if (restaurant.menu && Array.isArray(restaurant.menu)) {
+      restaurant.menu.forEach(item => {
+        if (initial[item.category]) {
+          initial[item.category].push(item);
+        }
+      });
+    }
     return initial;
   }, [restaurant]);
 
@@ -251,11 +253,11 @@ export const RestaurantDetails = () => {
           </div>
           <div className="hidden md:grid grid-rows-2 gap-4">
             <div className="aspect-[4/3] rounded-3xl overflow-hidden shadow-xs border border-zinc-250 bg-zinc-200">
-              <img src={restaurant.gallery[0] || restaurant.image} alt="Restaurant dining angle" className="w-full h-full object-cover" />
+              <img src={(restaurant.gallery && restaurant.gallery[0]) || restaurant.image} alt="Restaurant dining angle" className="w-full h-full object-cover" />
             </div>
             <div className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-xs border border-zinc-250 bg-zinc-200">
-              <img src={restaurant.gallery[1] || restaurant.image} alt="Restaurant detail close-up" className="w-full h-full object-cover" />
-              {restaurant.gallery.length > 2 && (
+              <img src={(restaurant.gallery && restaurant.gallery[1]) || restaurant.image} alt="Restaurant detail close-up" className="w-full h-full object-cover" />
+              {restaurant.gallery && restaurant.gallery.length > 2 && (
                 <div className="absolute inset-0 bg-zinc-950/60 flex items-center justify-center text-white text-xs font-extrabold uppercase tracking-widest pointer-events-none">
                   + {restaurant.gallery.length - 2} photos
                 </div>
@@ -306,11 +308,15 @@ export const RestaurantDetails = () => {
               <div className="border-t border-slate-101 pt-5">
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Property Amenities & Extras:</h4>
                 <div className="flex flex-wrap gap-2">
-                  {restaurant.features.map((feat, idx) => (
-                    <span key={idx} className="bg-slate-50 text-slate-700 border border-slate-150 text-xs font-semibold py-1.5 px-3 rounded-xl">
-                      {feat}
-                    </span>
-                  ))}
+                  {restaurant.features && Array.isArray(restaurant.features) && restaurant.features.length > 0 ? (
+                    restaurant.features.map((feat, idx) => (
+                      <span key={idx} className="bg-slate-50 text-slate-700 border border-slate-150 text-xs font-semibold py-1.5 px-3 rounded-xl">
+                        {feat}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-slate-400 text-xs">No features added yet</span>
+                  )}
                 </div>
               </div>
             </div>
