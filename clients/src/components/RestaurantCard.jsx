@@ -3,18 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { RatingStars } from './RatingStars';
-import { MapPin, ArrowRight } from 'lucide-react';
+import React from "react";
+import { Link } from "react-router-dom";
+import { RatingStars } from "./RatingStars";
+import { MapPin, ArrowRight } from "lucide-react";
 
 export const RestaurantCard = ({ restaurant }) => {
   // Convert Pricing symbol into visible tiers
   const renderPrice = (p) => {
     return (
-      <span className="font-mono text-xs font-semibold" title={`Price Level: ${p}`}>
+      <span
+        className="font-mono text-xs font-semibold"
+        title={`Price Level: ${p}`}
+      >
         <span className="text-zinc-900 font-bold">{p}</span>
-        <span className="text-zinc-300">{'§§§§'.slice(p.length)}</span>
+        <span className="text-zinc-300">{"§§§§".slice(p.length)}</span>
       </span>
     );
   };
@@ -22,7 +25,7 @@ export const RestaurantCard = ({ restaurant }) => {
   // Get primary cuisine type
   const primaryCuisine = Array.isArray(restaurant.cuisineType)
     ? restaurant.cuisineType[0]
-    : restaurant.cuisineType || 'Cuisine';
+    : restaurant.cuisineType || "Cuisine";
 
   return (
     <div
@@ -32,7 +35,7 @@ export const RestaurantCard = ({ restaurant }) => {
       {/* Restaurant Image Header */}
       <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
         <img
-          src={restaurant.image || 'https://via.placeholder.com/400x300?text=Restaurant'}
+          src={restaurant.image}
           alt={restaurant.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-350"
           loading="lazy"
@@ -51,12 +54,14 @@ export const RestaurantCard = ({ restaurant }) => {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-bold bg-indigo-655 text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-lg">
-                {restaurant.rating || 'N/A'}
+                {restaurant.rating || "N/A"}
               </span>
               <RatingStars rating={restaurant.rating || 0} size={13} />
-              <span className="text-slate-400 text-xs font-medium">({restaurant.reviewCount || 0})</span>
+              <span className="text-slate-400 text-xs font-medium">
+                ({restaurant.reviewCount || 0})
+              </span>
             </div>
-            {renderPrice(restaurant.priceRange || '§§')}
+            {renderPrice(restaurant.priceRange || "§§")}
           </div>
 
           {/* Restaurant Title */}
@@ -67,19 +72,23 @@ export const RestaurantCard = ({ restaurant }) => {
           {/* Location Area */}
           <div className="flex items-center gap-1 text-slate-500 mb-3">
             <MapPin size={13} className="shrink-0 text-slate-400" />
-            <span className="text-xs font-medium truncate">{restaurant.city || 'Location'}</span>
+            <span className="text-xs font-medium truncate">
+              {restaurant.city || "Location"}
+            </span>
           </div>
 
           {/* Short dynamic description */}
           <p className="text-slate-650 text-xs leading-relaxed line-clamp-2 mb-4">
-            {restaurant.description || restaurant.address || 'No description available'}
+            {restaurant.description ||
+              restaurant.address ||
+              "No description available"}
           </p>
         </div>
 
         {/* Footer actions */}
         <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-            Capacity: {restaurant.capacity || 'N/A'}
+            Capacity: {restaurant.capacity || "N/A"}
           </span>
           <Link
             to={`/restaurant/${restaurant._id}`}
