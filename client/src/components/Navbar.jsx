@@ -49,6 +49,10 @@ export const Navbar = () => {
     // setIsOpen(false);
   };
 
+  const handleOpenProfileModal = () => {
+    openProfileModal();
+  };
+
   return (
     <header
       className="sticky top-0 z-40 w-full border-b border-zinc-200 bg-white/95 backdrop-blur-md"
@@ -175,7 +179,7 @@ export const Navbar = () => {
                   <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce"></div>
 
                   <button
-                    onClick={() => openProfileModal}
+                    onClick={handleOpenProfileModal}
                     className="text-xs font-bold text-slate-800 truncate max-w-[130px] hover:text-indigo-600 cursor-pointer"
                     title={currentUser.email}
                   >
@@ -326,7 +330,7 @@ export const Navbar = () => {
               {currentUser ? (
                 <div
                   className="pt-4 mt-4 border-t border-zinc-150 px-3 flex flex-col gap-3"
-                  onClick={openProfileModal}
+                  onClick={handleOpenProfileModal}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-zinc-250 flex items-center justify-center text-zinc-655 font-bold text-sm">

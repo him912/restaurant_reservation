@@ -397,6 +397,7 @@ export const AppProvider = ({ children }) => {
         reservations,
         isLoading,
         setIsProfileModalOpen,
+        isProfileModalOpen,
         closeProfileModal,
         openProfileModal,
         profile,

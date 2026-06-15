@@ -67,6 +67,8 @@ export const AuthModal = () => {
 
       if (authModalTab === "login") {
         const success = await login(email, password || "password");
+
+        console.log("Login success:", success);
         if (success) {
           resetFields();
         } else {

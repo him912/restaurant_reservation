@@ -17,7 +17,8 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 // Helper to get auth config for requests
 const getAuthConfig = () => {
-  const token = localStorage.getItem("restaurant_token");
+  // token stored by the app is `dineflow_token` (set in AppContext.login)
+  const token = localStorage.getItem("dineflow_token");
   return token
     ? {
         headers: {
@@ -220,4 +221,37 @@ export const api = {
       );
     }
   },
+
+  // USER PROFILE
+getProfile: async () => {
+  try {
+    const response = await axios.get(
+      `${API_URL}/users`,
+      getAuthConfig()
+    );
+
+    return response.data.data;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+},
+
+updateProfile: async (profileData) => {
+  try {
+      // Server expects PATCH for partial profile updates
+      const response = await axios.patch(
+        `${API_URL}/users`,
+        profileData,
+        getAuthConfig()
+      );
+
+    return response.data.data;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+},
+
+
 };
