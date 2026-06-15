@@ -11,6 +11,17 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 const AppContext = createContext(undefined);
 
+const normalizeRole = (r) => {
+  if (!r) return "user";
+  const map = {
+    customer: "user",
+    owner: "restaurant_owner",
+    restaurant_owner: "restaurant_owner",
+    user: "user",
+  };
+  return map[r] || r;
+};
+
 const deriveNameFromEmail = (email) => {
   if (!email) return "Guest";
   const localPart = email.split("@")[0] || email;
@@ -61,11 +72,15 @@ export const AppProvider = ({ children }) => {
   });
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
   const [authModalTab, setAuthModalTab] = useState("login");
   const [restaurants, setRestaurants] = useState([]);
   const [reservations, setReservations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState({ message: "", type: null });
+
+  const [profile, setProfile] = useState(null);
 
   useEffect(() => {
     if (currentUser) {
@@ -111,7 +126,9 @@ export const AppProvider = ({ children }) => {
 
   const switchUserRole = (role) => {
     if (role === "restaurant_owner") {
-      const ownerUser = registeredUsers.find((u) => u.role === "owner") || {
+      const ownerUser = registeredUsers.find(
+        (u) => u.role === "restaurant_owner",
+      ) || {
         name: "Chef Kenji (Owner)",
         email: "contact@sakuraomakase.com",
         role: "owner",
@@ -135,6 +152,14 @@ export const AppProvider = ({ children }) => {
   const openAuthModal = (tab = "login") => {
     setAuthModalTab(tab);
     setIsAuthModalOpen(true);
+  };
+
+  const openProfileModal = () => {
+    setIsProfileModalOpen(true);
+  };
+
+  const closeProfileModal = () => {
+    setIsProfileModalOpen(false);
   };
 
   const closeAuthModal = () => setIsAuthModalOpen(false);
@@ -167,7 +192,10 @@ export const AppProvider = ({ children }) => {
         payload.username || payload.name || deriveNameFromEmail(userEmail);
       setCurrentUser({ name, email: userEmail, role });
       showToast(result.message || `Welcome back, ${name}!`, "success");
+      const profileData = await api.getProfile();
       setIsAuthModalOpen(false);
+
+      setProfile(profileData);
       return true;
     } catch (err) {
       const message =
@@ -338,6 +366,27 @@ export const AppProvider = ({ children }) => {
       showToast("Failed to update restaurant profile.", "error");
     }
   };
+  const fetchProfile = async () => {
+    try {
+      const data = await api.getProfile();
+      setProfile(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const updateUserProfile = async (payload) => {
+    try {
+      const updated = await api.updateProfile(payload);
+      setProfile(updated);
+
+      showToast("Profile updated successfully", "success");
+
+      return updated;
+    } catch (error) {
+      showToast("Failed to update profile", "error");
+    }
+  };
 
   return (
     <AppContext.Provider
@@ -347,6 +396,12 @@ export const AppProvider = ({ children }) => {
         restaurants,
         reservations,
         isLoading,
+        setIsProfileModalOpen,
+        closeProfileModal,
+        openProfileModal,
+        profile,
+        fetchProfile,
+        updateUserProfile,
         refreshRestaurants,
         refreshReservations,
         addNewReservation,

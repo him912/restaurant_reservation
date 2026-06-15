@@ -21,8 +21,14 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 
 export const Navbar = () => {
-  const { currentUser, switchUserRole, reservations, openAuthModal, logout } =
-    useApp();
+  const {
+    currentUser,
+    switchUserRole,
+    reservations,
+    openAuthModal,
+    logout,
+    openProfileModal,
+  } = useApp();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -36,7 +42,7 @@ export const Navbar = () => {
 
   const handleRoleToggle = () => {
     console.log(currentUser?.role);
-    const currentRole = currentUser?.role 
+    const currentRole = currentUser?.role;
     // || "user";
     // const nextRole = currentRole === "user" ? "user" : "owner";
     // switchUserRole(nextRole);
@@ -167,14 +173,15 @@ export const Navbar = () => {
               >
                 <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 py-1.5 px-3.5 rounded-xl">
                   <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce"></div>
-                  <span
-                    className="text-xs font-bold text-slate-800 truncate max-w-[130px]"
+
+                  <button
+                    onClick={() => openProfileModal}
+                    className="text-xs font-bold text-slate-800 truncate max-w-[130px] hover:text-indigo-600 cursor-pointer"
                     title={currentUser.email}
                   >
                     {currentUser.name}
-                  </span>
+                  </button>
                 </div>
-
                 {/* Sign Out CTA */}
                 <button
                   onClick={logout}
@@ -317,7 +324,10 @@ export const Navbar = () => {
 
               {/* Mobile Profile info banner or Login Buttons */}
               {currentUser ? (
-                <div className="pt-4 mt-4 border-t border-zinc-150 px-3 flex flex-col gap-3">
+                <div
+                  className="pt-4 mt-4 border-t border-zinc-150 px-3 flex flex-col gap-3"
+                  onClick={openProfileModal}
+                >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-zinc-250 flex items-center justify-center text-zinc-655 font-bold text-sm">
                       <User size={15} />
