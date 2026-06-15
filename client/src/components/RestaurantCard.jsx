@@ -35,7 +35,7 @@ export const RestaurantCard = ({ restaurant }) => {
       {/* Restaurant Image Header */}
       <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
         <img
-          src={restaurant.image}
+          src={restaurant.restaurantImage}
           alt={restaurant.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-350"
           loading="lazy"
