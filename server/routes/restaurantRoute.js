@@ -1,5 +1,18 @@
 const express = require("express");
+const multer = require("multer");
 const router = express.Router();
+
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("Only image files are allowed"), false);
+    }
+    cb(null, true);
+  },
+});
 
 const {
   createRestaurant,
@@ -37,8 +50,19 @@ router.put("/own/menu/:itemId", protect, ownerOnly, updateMenuItem);
 router.delete("/own/menu/:itemId", protect, ownerOnly, deleteMenuItem);
 
 // Owner routes - gallery management
-router.post("/own/gallery", protect, ownerOnly, addGalleryImage);
-router.delete("/own/gallery", protect, ownerOnly, deleteGalleryImage);
+router.post(
+  "/own/gallery/:restaurantId",
+  protect,
+  ownerOnly,
+  upload.array("images", 10),
+  addGalleryImage,
+);
+router.delete(
+  "/own/gallery/:restaurantId",
+  protect,
+  ownerOnly,
+  deleteGalleryImage,
+);
 
 // Get restaurant availability by date
 router.get("/:id/availability", getRestaurantAvailability);

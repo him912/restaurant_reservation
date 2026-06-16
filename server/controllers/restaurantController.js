@@ -1,4 +1,5 @@
 const Restaurant = require("../models/Restaurant");
+const cloudinary = require("../utils/cloudinary");
 
 // ================= CREATE RESTAURANT =================
 exports.createRestaurant = async (req, res) => {
@@ -488,23 +489,55 @@ exports.addGalleryImage = async (req, res) => {
   try {
     const ownerId = req.user?.id;
     const { imageUrl } = req.body;
+    const { restaurantId } = req.params;
+    const files = req.files || (req.file ? [req.file] : []);
+    const galleryUrls = [];
 
-    if (!imageUrl) {
+    if (!restaurantId) {
       return res.status(400).json({
         success: false,
-        message: "imageUrl is required",
+        message: "restaurantId is required",
       });
     }
 
-    const restaurant = await Restaurant.findOne({ ownerId });
+    if (!imageUrl && files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "imageUrl or image file is required",
+      });
+    }
+
+    if (files.length) {
+      for (const file of files) {
+        const result = await new Promise((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            { folder: "restaurant_gallery" },
+            (error, uploadedImage) => {
+              if (error) return reject(error);
+              resolve(uploadedImage);
+            },
+          );
+
+          uploadStream.end(file.buffer);
+        });
+
+        galleryUrls.push(result.secure_url);
+      }
+    }
+
+    if (imageUrl) {
+      galleryUrls.push(imageUrl);
+    }
+
+    const restaurant = await Restaurant.findOne({ ownerId, _id: restaurantId });
     if (!restaurant) {
       return res.status(404).json({
         success: false,
-        message: "You don't own any restaurant",
+        message: "Restaurant not found or you do not own this restaurant",
       });
     }
 
-    restaurant.gallery.push(imageUrl);
+    restaurant.gallery.push(...galleryUrls);
     await restaurant.save();
 
     res.status(201).json({
@@ -524,7 +557,15 @@ exports.addGalleryImage = async (req, res) => {
 exports.deleteGalleryImage = async (req, res) => {
   try {
     const ownerId = req.user?.id;
+    const { restaurantId } = req.params;
     const { imageUrl } = req.body;
+
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: "restaurantId is required",
+      });
+    }
 
     if (!imageUrl) {
       return res.status(400).json({
@@ -533,11 +574,11 @@ exports.deleteGalleryImage = async (req, res) => {
       });
     }
 
-    const restaurant = await Restaurant.findOne({ ownerId });
+    const restaurant = await Restaurant.findOne({ ownerId, _id: restaurantId });
     if (!restaurant) {
       return res.status(404).json({
         success: false,
-        message: "You don't own any restaurant",
+        message: "Restaurant not found or you do not own this restaurant",
       });
     }
 
