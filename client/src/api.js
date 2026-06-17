@@ -80,7 +80,8 @@ export const api = {
         `${API_URL}/restaurants/${id}`,
         getAuthConfig(),
       );
-      return response.data || null;
+      const data = response.data?.data || response.data;
+      return data || null;
     } catch (err) {
       console.error("Failed to fetch restaurant detail from backend:", err);
       await delay(200);

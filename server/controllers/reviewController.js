@@ -1,5 +1,6 @@
 const Review = require("../models/Review");
 const Restaurant = require("../models/Restaurant");
+const cloudinary = require("../utils/cloudinary");
 const mongoose = require("mongoose");
 
 const updateRestaurantRating = async (restaurantId) => {
@@ -13,8 +14,9 @@ const updateRestaurantRating = async (restaurantId) => {
 
 exports.createReview = async (req, res) => {
   try {
-    const { restaurantId, rating, comment, photos } = req.body;
+    const { restaurantId, reviewName, rating, comment, photos } = req.body;
     const userId = req.user?.id;
+    const files = req.files || [];
 
     if (!restaurantId || rating === undefined) {
       return res.status(400).json({
@@ -46,12 +48,37 @@ exports.createReview = async (req, res) => {
       });
     }
 
+    // Upload files to Cloudinary
+    const uploadedUrls = [];
+    if (files.length > 0) {
+      for (const file of files) {
+        const result = await new Promise((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            { folder: "restaurant_reviews" },
+            (error, uploadedImage) => {
+              if (error) return reject(error);
+              resolve(uploadedImage);
+            },
+          );
+          uploadStream.end(file.buffer);
+        });
+        uploadedUrls.push(result.secure_url);
+      }
+    }
+
+    // Combine uploaded URLs with any provided URLs
+    const allPhotos = [
+      ...uploadedUrls,
+      ...(Array.isArray(photos) ? photos.filter((p) => p) : []),
+    ];
+
     const review = await Review.create({
       restaurantId,
       userId,
+      reviewName: reviewName || "",
       rating,
       comment,
-      photos: Array.isArray(photos) ? photos.filter((p) => p) : [],
+      photos: allPhotos,
     });
 
     await updateRestaurantRating(restaurantId);
@@ -104,7 +131,8 @@ exports.updateReview = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
-    const { rating, comment, photos } = req.body;
+    const { reviewName, rating, comment, photos } = req.body;
+    const files = req.files || [];
 
     const review = await Review.findById(id);
     if (!review) {
@@ -121,6 +149,10 @@ exports.updateReview = async (req, res) => {
       });
     }
 
+    if (reviewName !== undefined) {
+      review.reviewName = reviewName;
+    }
+
     if (rating !== undefined) {
       if (rating < 1 || rating > 5) {
         return res.status(400).json({
@@ -135,8 +167,29 @@ exports.updateReview = async (req, res) => {
       review.comment = comment;
     }
 
+    // Handle new file uploads
+    const uploadedUrls = [];
+    if (files.length > 0) {
+      for (const file of files) {
+        const result = await new Promise((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            { folder: "restaurant_reviews" },
+            (error, uploadedImage) => {
+              if (error) return reject(error);
+              resolve(uploadedImage);
+            },
+          );
+          uploadStream.end(file.buffer);
+        });
+        uploadedUrls.push(result.secure_url);
+      }
+    }
+
+    // Update photos: combine new uploads with provided URLs, or keep existing
     if (photos !== undefined && Array.isArray(photos)) {
-      review.photos = photos.filter((p) => p);
+      review.photos = [...uploadedUrls, ...photos.filter((p) => p)];
+    } else if (files.length > 0) {
+      review.photos = [...uploadedUrls, ...review.photos];
     }
 
     await review.save();

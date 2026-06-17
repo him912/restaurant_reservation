@@ -249,7 +249,7 @@ export const RestaurantDetails = () => {
         {/* Dynamic Collage Grid */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10" id="collage-gallery">
           <div className="md:col-span-2 aspect-[16/10] sm:aspect-[16/9] rounded-3xl overflow-hidden shadow-xs border border-zinc-250 bg-zinc-200">
-            <img src={restaurant.restaurantImage} alt={restaurant.name} className="w-full h-full object-cover" />
+            <img src={restaurant.restaurantImage || restaurant.image} alt={restaurant.name} className="w-full h-full object-cover" />
           </div>
           <div className="hidden md:grid grid-rows-2 gap-4">
             <div className="aspect-[4/3] rounded-3xl overflow-hidden shadow-xs border border-zinc-250 bg-zinc-200">
