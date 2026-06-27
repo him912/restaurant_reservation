@@ -154,6 +154,7 @@ export const api = {
 
   createReview: async (review, files = []) => {
     try {
+      console.log("Creating review with payload:", review, "and files:", files);
       const formData = new FormData();
       formData.append("restaurantId", review.restaurantId);
       formData.append("reviewName", review.reviewName || review.title || "");

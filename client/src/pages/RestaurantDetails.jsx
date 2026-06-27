@@ -195,12 +195,12 @@ export const RestaurantDetails = () => {
 
   const handleReviewDelete = async (reviewId) => {
     if (!window.confirm('Delete this review?')) return;
-
+    if (!id) return;
     try {
       await api.deleteReview(reviewId);
-      const updatedReviews = await api.getReviewsByRestaurantId(restaurant.id);
+      const updatedReviews = await api.getReviewsByRestaurantId(id);
       setReviews(updatedReviews);
-      const updatedRest = await api.getRestaurantById(restaurant.id);
+      const updatedRest = await api.getRestaurantById(id);
       if (updatedRest) {
         setRestaurant(updatedRest);
       }
@@ -242,7 +242,7 @@ export const RestaurantDetails = () => {
     try {
       setSubmittingReview(true);
       const reviewPayload = {
-        restaurantId: restaurant.id,
+        restaurantId: id,
         reviewName: reviewTitle.trim(),
         rating: reviewRating,
         comment: reviewContent.trim(),
