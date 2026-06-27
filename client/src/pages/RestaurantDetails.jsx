@@ -362,24 +362,35 @@ export const RestaurantDetails = () => {
                 {menuMap[activeMenuCategory] && menuMap[activeMenuCategory].length > 0 ? (
                   menuMap[activeMenuCategory].map(item => (
                     <div
-                      key={item.id}
-                      className="p-4 rounded-2xl border border-zinc-150 bg-zinc-50/50 hover:bg-white hover:shadow-md transition-all duration-200 flex flex-col justify-between"
-                      id={`menu-item-${item.id}`}
+                      key={item.id || item._id}
+                      className="overflow-hidden rounded-2xl border border-zinc-150 bg-zinc-50/50 hover:bg-white hover:shadow-md transition-all duration-200"
+                      id={`menu-item-${item.id || item._id}`}
                     >
-                      <div>
-                        <div className="flex justify-between items-start gap-2 mb-1.5">
-                          <h4 className="font-bold text-sm text-zinc-900 flex items-center gap-1.5">
-                            {item.name}
-                            {item.isPopular && (
-                              <span className="bg-rose-50 text-rose-605 border border-rose-100 text-[9px] font-bold px-1.5 py-0.5 rounded-sm flex items-center gap-0.5 uppercase tracking-wide">
-                                <Flame size={9} className="fill-rose-500 text-rose-500" />
-                                <span>Fav</span>
-                              </span>
-                            )}
-                          </h4>
-                          <span className="font-mono text-zinc-900 font-extrabold text-sm">${item.price}</span>
+                      {item.image && (
+                        <div className="h-40 overflow-hidden bg-zinc-100">
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
-                        <p className="text-zinc-505 text-xs leading-relaxed font-semibold">{item.description}</p>
+                      )}
+                      <div className="p-4 flex flex-col justify-between gap-4">
+                        <div>
+                          <div className="flex justify-between items-start gap-2 mb-1.5">
+                            <h4 className="font-bold text-sm text-zinc-900 flex items-center gap-1.5">
+                              {item.name}
+                              {item.isPopular && (
+                                <span className="bg-rose-50 text-rose-605 border border-rose-100 text-[9px] font-bold px-1.5 py-0.5 rounded-sm flex items-center gap-0.5 uppercase tracking-wide">
+                                  <Flame size={9} className="fill-rose-500 text-rose-500" />
+                                  <span>Fav</span>
+                                </span>
+                              )}
+                            </h4>
+                            <span className="font-mono text-zinc-900 font-extrabold text-sm">${item.price}</span>
+                          </div>
+                          <p className="text-zinc-505 text-xs leading-relaxed font-semibold">{item.description}</p>
+                        </div>
                       </div>
                     </div>
                   ))
