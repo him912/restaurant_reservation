@@ -365,7 +365,15 @@ exports.updateRestaurantProfile = async (req, res) => {
 exports.addMenuItem = async (req, res) => {
   try {
     const ownerId = req.user?.id;
+    const { restaurantId } = req.params;
     const { name, description, category, price, image } = req.body;
+
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: "restaurantId is required",
+      });
+    }
 
     if (!name || price === undefined) {
       return res.status(400).json({
@@ -374,11 +382,11 @@ exports.addMenuItem = async (req, res) => {
       });
     }
 
-    const restaurant = await Restaurant.findOne({ ownerId });
+    const restaurant = await Restaurant.findOne({ _id: restaurantId, ownerId });
     if (!restaurant) {
       return res.status(404).json({
         success: false,
-        message: "You don't own any restaurant",
+        message: "Restaurant not found or you are not the owner",
       });
     }
 
@@ -411,14 +419,21 @@ exports.addMenuItem = async (req, res) => {
 exports.updateMenuItem = async (req, res) => {
   try {
     const ownerId = req.user?.id;
-    const { itemId } = req.params;
+    const { restaurantId, itemId } = req.params;
     const { name, description, category, price, image, available } = req.body;
 
-    const restaurant = await Restaurant.findOne({ ownerId });
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: "restaurantId is required",
+      });
+    }
+
+    const restaurant = await Restaurant.findOne({ _id: restaurantId, ownerId });
     if (!restaurant) {
       return res.status(404).json({
         success: false,
-        message: "You don't own any restaurant",
+        message: "Restaurant not found or you are not the owner",
       });
     }
 
@@ -456,13 +471,20 @@ exports.updateMenuItem = async (req, res) => {
 exports.deleteMenuItem = async (req, res) => {
   try {
     const ownerId = req.user?.id;
-    const { itemId } = req.params;
+    const { restaurantId, itemId } = req.params;
 
-    const restaurant = await Restaurant.findOne({ ownerId });
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: "restaurantId is required",
+      });
+    }
+
+    const restaurant = await Restaurant.findOne({ _id: restaurantId, ownerId });
     if (!restaurant) {
       return res.status(404).json({
         success: false,
-        message: "You don't own any restaurant",
+        message: "Restaurant not found or you are not the owner",
       });
     }
 

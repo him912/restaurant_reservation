@@ -44,10 +44,10 @@ router.get("/own/details", protect, ownerOnly, getOwnRestaurant);
 // Owner routes - manage profile
 router.put("/own/profile", protect, ownerOnly, updateRestaurantProfile);
 
-// Owner routes - menu management
-router.post("/own/menu", protect, ownerOnly, addMenuItem);
-router.put("/own/menu/:itemId", protect, ownerOnly, updateMenuItem);
-router.delete("/own/menu/:itemId", protect, ownerOnly, deleteMenuItem);
+// Owner routes - menu management for a specific restaurant
+router.post("/own/:restaurantId/menu", protect, ownerOnly, addMenuItem);
+router.put("/own/:restaurantId/menu/:itemId", protect, ownerOnly, updateMenuItem);
+router.delete("/own/:restaurantId/menu/:itemId", protect, ownerOnly, deleteMenuItem);
 
 // Owner routes - gallery management
 router.post(

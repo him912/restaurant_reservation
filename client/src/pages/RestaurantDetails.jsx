@@ -99,19 +99,24 @@ export const RestaurantDetails = () => {
     ];
   }, []);
 
-  // Filter categorised menu items
+  // Filter categorised menu items from restaurant menu data
   const menuMap = useMemo(() => {
-    if (!restaurant) return { Appetizers: [], Mains: [], Desserts: [], Drinks: [] };
-    const initial = { Appetizers: [], Mains: [], Desserts: [], Drinks: [] };
-    if (restaurant.menu && Array.isArray(restaurant.menu)) {
-      restaurant.menu.forEach(item => {
-        if (initial[item.category]) {
-          initial[item.category].push(item);
-        }
-      });
-    }
-    return initial;
+    if (!restaurant || !restaurant.menu || !Array.isArray(restaurant.menu)) return {};
+    return restaurant.menu.reduce((acc, item) => {
+      const category = item.category || "Uncategorized";
+      if (!acc[category]) acc[category] = [];
+      acc[category].push(item);
+      return acc;
+    }, {});
   }, [restaurant]);
+
+  const menuCategories = useMemo(() => Object.keys(menuMap), [menuMap]);
+
+  useEffect(() => {
+    if (menuCategories.length > 0 && !menuCategories.includes(activeMenuCategory)) {
+      setActiveMenuCategory(menuCategories[0]);
+    }
+  }, [menuCategories, activeMenuCategory]);
 
   // Handle Reservation creation
   const handleBookingSubmit = async (e) => {
@@ -331,20 +336,24 @@ export const RestaurantDetails = () => {
 
                 {/* Categories Tab Selector */}
                 <div className="flex gap-1 overflow-x-auto max-w-full pb-1 scrollbar-none" id="menu-categories-pills">
-                  {['Appetizers', 'Mains', 'Desserts', 'Drinks'].map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => setActiveMenuCategory(cat)}
-                      className={`text-xs font-extrabold px-4 py-2 rounded-xl border transition-all cursor-pointer ${
-                        activeMenuCategory === cat
-                          ? 'bg-slate-900 border-slate-900 text-white shadow-sm'
-                          : 'bg-white border-slate-205 text-slate-500 hover:text-indigo-650 hover:bg-indigo-50/50'
-                      }`}
-                      id={`menu-cat-pill-${cat}`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
+                  {menuCategories.length > 0 ? (
+                    menuCategories.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setActiveMenuCategory(cat)}
+                        className={`text-xs font-extrabold px-4 py-2 rounded-xl border transition-all cursor-pointer ${
+                          activeMenuCategory === cat
+                            ? 'bg-slate-900 border-slate-900 text-white shadow-sm'
+                            : 'bg-white border-slate-205 text-slate-500 hover:text-indigo-650 hover:bg-indigo-50/50'
+                        }`}
+                        id={`menu-cat-pill-${cat}`}
+                      >
+                        {cat}
+                      </button>
+                    ))
+                  ) : (
+                    <span className="text-xs text-slate-400">No menu categories available.</span>
+                  )}
                 </div>
               </div>
 
