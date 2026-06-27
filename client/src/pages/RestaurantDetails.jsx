@@ -101,8 +101,8 @@ export const RestaurantDetails = () => {
 
   // Filter categorised menu items from restaurant menu data
   const menuMap = useMemo(() => {
-    if (!restaurant || !restaurant.menu || !Array.isArray(restaurant.menu)) return {};
-    return restaurant.menu.reduce((acc, item) => {
+    if (!restaurant || !restaurant.menuItems || !Array.isArray(restaurant.menuItems)) return {};
+    return restaurant.menuItems.reduce((acc, item) => {
       const category = item.category || "Uncategorized";
       if (!acc[category]) acc[category] = [];
       acc[category].push(item);
