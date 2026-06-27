@@ -3,13 +3,35 @@ const Restaurant = require("../models/Restaurant");
 const cloudinary = require("../utils/cloudinary");
 const mongoose = require("mongoose");
 
-const updateRestaurantRating = async (restaurantId) => {
+const buildReviewSummary = async (restaurantId) => {
   const reviews = await Review.find({ restaurantId });
-  const rating = reviews.length
-    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+  const totalReviews = reviews.length;
+  const averageRating = totalReviews
+    ? reviews.reduce((sum, review) => sum + review.rating, 0) / totalReviews
     : 0;
 
-  await Restaurant.findByIdAndUpdate(restaurantId, { rating }, { returnDocument: "after" });
+  const starCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+  reviews.forEach((review) => {
+    const rounded = Math.round(review.rating).toString();
+    if (starCounts[rounded] !== undefined) {
+      starCounts[rounded] += 1;
+    }
+  });
+
+  return {
+    averageRating: Number(averageRating.toFixed(1)),
+    totalReviews,
+    starCounts,
+  };
+};
+
+const updateRestaurantRating = async (restaurantId) => {
+  const reviewSummary = await buildReviewSummary(restaurantId);
+  await Restaurant.findByIdAndUpdate(
+    restaurantId,
+    { rating: reviewSummary.averageRating },
+    { returnDocument: "after" },
+  );
 };
 
 exports.createReview = async (req, res) => {
@@ -114,10 +136,13 @@ exports.getReviewsByRestaurant = async (req, res) => {
       .populate("responses.userId", "username email")
       .sort({ createdAt: -1 });
 
+    const reviewSummary = await buildReviewSummary(restaurantId);
+
     res.status(200).json({
       success: true,
       count: reviews.length,
       data: reviews,
+      summary: reviewSummary,
     });
   } catch (error) {
     res.status(500).json({

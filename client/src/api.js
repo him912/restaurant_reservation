@@ -29,6 +29,31 @@ const getAuthConfig = () => {
     : { headers: { "Content-Type": "application/json" } };
 };
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("dineflow_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+const normalizeReview = (review) => {
+  if (!review) return null;
+  const id = review._id || review.id;
+  return {
+    ...review,
+    id,
+    rating: Number(review.rating || 0),
+    title: review.reviewName || review.title || review.name || "",
+    content: review.comment || review.content || "",
+    reviewerName:
+      review.userId?.username ||
+      review.reviewerName ||
+      review.reviewerName ||
+      review.name ||
+      "",
+    date: review.createdAt || review.date || new Date().toISOString(),
+    photos: Array.isArray(review.photos) ? review.photos : [],
+  };
+};
+
 // Helper to initialize Local Storage
 const initLocalStorage = () => {
   if (!localStorage.getItem("restaurant_platform_restaurants")) {
@@ -110,50 +135,98 @@ export const api = {
 
   // REVIEWS
   getReviewsByRestaurantId: async (restaurantId) => {
-    await delay(250);
-    const data = localStorage.getItem("restaurant_platform_reviews");
-    if (!data) return [];
-    const list = JSON.parse(data);
-    return list.filter((r) => r.restaurantId === restaurantId);
+    try {
+      const response = await axios.get(
+        `${API_URL}/reviews/restaurant/${restaurantId}`,
+        getAuthConfig(),
+      );
+      const reviews = response.data?.data || [];
+      return Array.isArray(reviews) ? reviews.map(normalizeReview) : [];
+    } catch (err) {
+      console.error("Failed to fetch reviews from backend:", err);
+      await delay(250);
+      const data = localStorage.getItem("restaurant_platform_reviews");
+      if (!data) return [];
+      const list = JSON.parse(data);
+      return list.filter((r) => r.restaurantId === restaurantId).map(normalizeReview);
+    }
   },
 
-  addReview: async (review) => {
-    await delay(400);
-    const data = localStorage.getItem("restaurant_platform_reviews");
-    const list = data ? JSON.parse(data) : [];
+  createReview: async (review, files = []) => {
+    try {
+      const formData = new FormData();
+      formData.append("restaurantId", review.restaurantId);
+      formData.append("reviewName", review.reviewName || review.title || "");
+      formData.append("rating", review.rating);
+      formData.append("comment", review.comment || review.content || "");
 
-    // Create new review
-    const newReview = {
-      ...review,
-      id: `rev-${Date.now()}`,
-      date: new Date().toISOString().split("T")[0],
-    };
+      (files || []).slice(0, 2).forEach((file) => {
+        formData.append("images", file);
+      });
 
-    list.unshift(newReview);
-    localStorage.setItem("restaurant_platform_reviews", JSON.stringify(list));
-
-    // Recalculate restaurant ratings aggregate
-    const restData = localStorage.getItem("restaurant_platform_restaurants");
-    if (restData) {
-      const restList = JSON.parse(restData);
-      const restIdx = restList.findIndex((r) => r.id === review.restaurantId);
-      if (restIdx !== -1) {
-        const restReviews = list.filter(
-          (r) => r.restaurantId === review.restaurantId,
-        );
-        const avg =
-          restReviews.reduce((sum, r) => sum + r.rating, 0) /
-          restReviews.length;
-        restList[restIdx].rating = parseFloat(avg.toFixed(1));
-        restList[restIdx].ratingCount = restReviews.length;
-        localStorage.setItem(
-          "restaurant_platform_restaurants",
-          JSON.stringify(restList),
-        );
+      if (Array.isArray(review.photos)) {
+        review.photos.forEach((photo) => {
+          if (photo) formData.append("photos", photo);
+        });
       }
-    }
 
-    return newReview;
+      const response = await axios.post(`${API_URL}/reviews`, formData, {
+        headers: {
+          ...getAuthHeaders(),
+        },
+      });
+      return normalizeReview(response.data?.data || response.data);
+    } catch (err) {
+      console.error("Failed to create review:", err);
+      throw err;
+    }
+  },
+
+  updateReview: async (reviewId, review, files = []) => {
+    try {
+      const formData = new FormData();
+      formData.append("reviewName", review.reviewName || review.title || "");
+      formData.append("rating", review.rating);
+      formData.append("comment", review.comment || review.content || "");
+
+      (files || []).slice(0, 2).forEach((file) => {
+        formData.append("images", file);
+      });
+
+      if (Array.isArray(review.photos)) {
+        review.photos.forEach((photo) => {
+          if (photo) formData.append("photos", photo);
+        });
+      }
+
+      const response = await axios.put(`${API_URL}/reviews/${reviewId}`, formData, {
+        headers: {
+          ...getAuthHeaders(),
+        },
+      });
+      return normalizeReview(response.data?.data || response.data);
+    } catch (err) {
+      console.error("Failed to update review:", err);
+      throw err;
+    }
+  },
+
+  deleteReview: async (reviewId) => {
+    try {
+      const response = await axios.delete(`${API_URL}/reviews/${reviewId}`, {
+        headers: {
+          ...getAuthHeaders(),
+        },
+      });
+      return response.data;
+    } catch (err) {
+      console.error("Failed to delete review:", err);
+      throw err;
+    }
+  },
+
+  addReview: async (review, files = []) => {
+    return api.createReview(review, files);
   },
 
   // RESERVATIONS

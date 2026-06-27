@@ -30,7 +30,7 @@ import { motion, AnimatePresence } from 'motion/react';
 export const RestaurantDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { currentUser, addNewReservation, submitRestaurantReview, showToast, openAuthModal } = useApp();
+  const { currentUser, addNewReservation, showToast, openAuthModal } = useApp();
 
   // Local Component States
   const [restaurant, setRestaurant] = useState(null);
@@ -51,6 +51,8 @@ export const RestaurantDetails = () => {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewTitle, setReviewTitle] = useState('');
   const [reviewContent, setReviewContent] = useState('');
+  const [reviewFiles, setReviewFiles] = useState([]);
+  const [editingReviewId, setEditingReviewId] = useState(null);
   const [submittingReview, setSubmittingReview] = useState(false);
 
   // Fetch individual restaurant details
@@ -165,6 +167,64 @@ export const RestaurantDetails = () => {
     }
   };
 
+  const resetReviewForm = () => {
+    setReviewRating(5);
+    setReviewTitle('');
+    setReviewContent('');
+    setReviewFiles([]);
+    setEditingReviewId(null);
+  };
+
+  const handleReviewFilesChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 2) {
+      showToast('You can upload up to 2 photos per review.', 'error');
+      e.target.value = '';
+      return;
+    }
+    setReviewFiles(files);
+  };
+
+  const handleReviewEdit = (review) => {
+    setEditingReviewId(review.id);
+    setReviewRating(review.rating || 5);
+    setReviewTitle(review.title || '');
+    setReviewContent(review.content || '');
+    setReviewFiles([]);
+  };
+
+  const handleReviewDelete = async (reviewId) => {
+    if (!window.confirm('Delete this review?')) return;
+
+    try {
+      await api.deleteReview(reviewId);
+      const updatedReviews = await api.getReviewsByRestaurantId(restaurant.id);
+      setReviews(updatedReviews);
+      const updatedRest = await api.getRestaurantById(restaurant.id);
+      if (updatedRest) {
+        setRestaurant(updatedRest);
+      }
+      if (editingReviewId === reviewId) {
+        resetReviewForm();
+      }
+      showToast('Review removed.', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to delete review.', 'error');
+    }
+  };
+
+  const canManageReview = (review) => {
+    if (!currentUser) return false;
+    return (
+      currentUser.email === review.reviewerEmail ||
+      currentUser.name === review.reviewerName ||
+      currentUser._id === review.userId?._id ||
+      currentUser.id === review.userId?.id ||
+      currentUser.id === review.userId
+    );
+  };
+
   // Handle Review submission
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
@@ -183,28 +243,33 @@ export const RestaurantDetails = () => {
       setSubmittingReview(true);
       const reviewPayload = {
         restaurantId: restaurant.id,
-        reviewerName: currentUser.name,
-        reviewerEmail: currentUser.email,
+        reviewName: reviewTitle.trim(),
         rating: reviewRating,
-        title: reviewTitle,
-        content: reviewContent
+        comment: reviewContent.trim(),
+        reviewerName: currentUser?.name || '',
+        reviewerEmail: currentUser?.email || ''
       };
 
-      const completedReview = await submitRestaurantReview(reviewPayload);
-      setReviews(prev => [completedReview, ...prev]);
+      const completedReview = editingReviewId
+        ? await api.updateReview(editingReviewId, reviewPayload, reviewFiles)
+        : await api.createReview(reviewPayload, reviewFiles);
 
-      // Refetch restaurant detail dynamically to update the global aggregate reviews
+      const updatedReviews = await api.getReviewsByRestaurantId(restaurant.id);
+      setReviews(updatedReviews);
+
       const updatedRest = await api.getRestaurantById(restaurant.id);
       if (updatedRest) {
         setRestaurant(updatedRest);
       }
 
-      // Reset Form fields
-      setReviewRating(5);
-      setReviewTitle('');
-      setReviewContent('');
+      resetReviewForm();
+      showToast(
+        editingReviewId ? 'Your review has been updated.' : 'Your review has been published!',
+        'success',
+      );
     } catch (err) {
       console.error(err);
+      showToast('Failed to submit review.', 'error');
     } finally {
       setSubmittingReview(false);
     }
@@ -455,7 +520,9 @@ export const RestaurantDetails = () => {
 
               {/* Review submit form */}
               <div className="mb-10 pb-10 border-b border-slate-200" id="submission-review-box">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Post a Dining Experience Review</h4>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
+                  {editingReviewId ? 'Update Your Dining Experience Review' : 'Post a Dining Experience Review'}
+                </h4>
                 
                 {currentUser ? (
                   <form onSubmit={handleReviewSubmit} className="space-y-4">
@@ -500,15 +567,36 @@ export const RestaurantDetails = () => {
                     </div>
 
                     <div>
+                      <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1.5">Attach Review Photos</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleReviewFilesChange}
+                        className="w-full bg-white border border-slate-205 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900"
+                      />
+                      <p className="mt-1 text-[10px] text-slate-400 font-semibold">Add up to 2 photos to accompany your review.</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
                       <button
                         type="submit"
                         disabled={submittingReview}
                         className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl hover:shadow-md transition shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                         id="review-submit-btn"
                       >
-                        <span>Publish Feedback Review</span>
+                        <span>{editingReviewId ? 'Update Feedback Review' : 'Publish Feedback Review'}</span>
                         {submittingReview && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
                       </button>
+                      {editingReviewId && (
+                        <button
+                          type="button"
+                          onClick={resetReviewForm}
+                          className="px-4 py-3 bg-white border border-slate-200 text-slate-700 font-black text-xs rounded-xl hover:bg-slate-50 transition"
+                        >
+                          Cancel Edit
+                        </button>
+                      )}
                     </div>
                   </form>
                 ) : (
@@ -541,16 +629,47 @@ export const RestaurantDetails = () => {
                           </div>
                         </div>
 
-                        {/* Critic avatar profile icon */}
-                        <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 px-2.5 py-1 rounded-lg">
-                          <span className="text-[9px] font-extrabold text-zinc-650 tracking-wide uppercase truncate max-w-[90px]">
-                            {rev.reviewerName}
-                          </span>
+                        <div className="flex items-center gap-2">
+                          {canManageReview(rev) && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleReviewEdit(rev)}
+                                className="text-[10px] font-bold uppercase tracking-wide text-indigo-600 hover:text-indigo-700"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleReviewDelete(rev.id)}
+                                className="text-[10px] font-bold uppercase tracking-wide text-rose-600 hover:text-rose-700"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
+                          <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 px-2.5 py-1 rounded-lg">
+                            <span className="text-[9px] font-extrabold text-zinc-650 tracking-wide uppercase truncate max-w-[90px]">
+                              {rev.reviewerName}
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <p className="text-zinc-655 text-xs leading-relaxed pl-1 font-semibold">
                         "{rev.content}"
                       </p>
+                      {rev.photos && rev.photos.length > 0 && (
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          {rev.photos.map((photo, index) => (
+                            <img
+                              key={`${rev.id}-${index}`}
+                              src={photo}
+                              alt={`${rev.title} photo ${index + 1}`}
+                              className="h-24 w-full rounded-xl object-cover border border-zinc-200"
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (
