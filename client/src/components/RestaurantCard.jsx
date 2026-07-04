@@ -4,11 +4,14 @@
  */
 
 import React from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useApp } from "../context/AppContext";
 import { RatingStars } from "./RatingStars";
 import { MapPin, ArrowRight } from "lucide-react";
 
 export const RestaurantCard = ({ restaurant }) => {
+  const navigate = useNavigate();
+  const { currentUser, openAuthModal } = useApp();
   // Convert Pricing symbol into visible tiers
   const renderPrice = (p) => {
     return (
@@ -26,6 +29,16 @@ export const RestaurantCard = ({ restaurant }) => {
   const primaryCuisine = Array.isArray(restaurant.cuisineType)
     ? restaurant.cuisineType[0]
     : restaurant.cuisineType || "Cuisine";
+
+  const handleBookClick = (event) => {
+    if (!currentUser) {
+      event.preventDefault();
+      openAuthModal("login");
+      return;
+    }
+
+    navigate(`/restaurant/${restaurant._id || restaurant.id}`);
+  };
 
   return (
     <div
@@ -90,14 +103,15 @@ export const RestaurantCard = ({ restaurant }) => {
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
             Capacity: {restaurant.capacity || "N/A"}
           </span>
-          <Link
-            to={`/restaurant/${restaurant._id}`}
+          <button
+            type="button"
+            onClick={handleBookClick}
             className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 group-hover:gap-1.5 transition-all text-right py-2 px-3.5 rounded-xl active:scale-97 cursor-pointer"
-            id={`book-trigger-${restaurant._id}`}
+            id={`book-trigger-${restaurant._id || restaurant.id}`}
           >
             <span>Book Table</span>
             <ArrowRight size={13} className="text-indigo-600" />
-          </Link>
+          </button>
         </div>
       </div>
     </div>

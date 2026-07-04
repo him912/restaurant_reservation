@@ -35,17 +35,18 @@ const deriveNameFromEmail = (email) => {
 
 export const AppProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(() => {
+    const token = localStorage.getItem("dineflow_token");
+    if (!token) return null;
+
     const saved = localStorage.getItem("dineflow_current_user");
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        return parsed && parsed.email ? parsed : null;
       } catch (_) {}
     }
-    return {
-      name: "Marcus Sterling",
-      email: "marcus@sterling.co",
-      role: "customer",
-    };
+
+    return null;
   });
 
   const [registeredUsers, setRegisteredUsers] = useState(() => {
