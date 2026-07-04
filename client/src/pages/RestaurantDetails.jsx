@@ -141,7 +141,7 @@ export const RestaurantDetails = () => {
     try {
       setBookingLoading(true);
       const bookingData = {
-        restaurantId: restaurant.id,
+        restaurantId: id,
         restaurantName: restaurant.name,
         restaurantCuisine: restaurant.cuisine,
         restaurantImage: restaurant.image,
@@ -150,6 +150,7 @@ export const RestaurantDetails = () => {
         customerPhone: customerPhone,
         date: bookingDate,
         time: bookingTime,
+        partySize: bookingGuests,
         guests: bookingGuests,
         specialRequests: specialRequests
       };

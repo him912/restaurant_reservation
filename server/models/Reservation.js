@@ -7,6 +7,10 @@ const reservationSchema = new mongoose.Schema(
       ref: "Restaurant",
       required: true,
     },
+    restaurantImage: {
+      type: String,
+      default: "",
+    },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

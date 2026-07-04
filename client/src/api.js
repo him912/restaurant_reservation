@@ -54,6 +54,98 @@ const normalizeReview = (review) => {
   };
 };
 
+const getStoredCurrentUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem("dineflow_current_user") || "null");
+  } catch {
+    return null;
+  }
+};
+
+const normalizeReservation = (reservation) => {
+  if (!reservation) return null;
+  const id = reservation._id || reservation.id;
+  const restaurantId =
+    reservation.restaurantId?._id ||
+    reservation.restaurantId?.id ||
+    reservation.restaurantId ||
+    "";
+  const restaurant = reservation.restaurantId || {};
+  const storedCurrentUser = getStoredCurrentUser();
+  const partySize = Number(
+    reservation.partySize || reservation.guests || reservation.party_size || 0,
+  );
+  const fallbackCustomerName =
+    reservation.customerName ||
+    reservation.customerFullName ||
+    storedCurrentUser?.name ||
+    reservation.userId?.username ||
+    reservation.userId?.name ||
+    "";
+  const fallbackCustomerEmail =
+    reservation.customerEmail ||
+    storedCurrentUser?.email ||
+    reservation.userId?.email ||
+    "";
+
+  return {
+    ...reservation,
+    id,
+    restaurantId,
+    restaurantName: reservation.restaurantName || restaurant.name || "",
+    restaurantCuisine: reservation.restaurantCuisine || restaurant.cuisine || "",
+    restaurantImage: reservation.restaurantImage || restaurant.image || "",
+    customerName: fallbackCustomerName,
+    customerEmail: fallbackCustomerEmail,
+    customerPhone: reservation.customerPhone || "",
+    partySize,
+    guests: partySize,
+    status:
+      reservation.status === "reserved"
+        ? "confirmed"
+        : reservation.status || "pending",
+    specialRequests: reservation.specialRequests || "",
+    tableNumber: reservation.tableNumber || null,
+    date:
+      typeof reservation.date === "string"
+        ? reservation.date
+        : reservation.date instanceof Date
+        ? reservation.date.toISOString().split("T")[0]
+        : reservation.date
+        ? new Date(reservation.date).toISOString().split("T")[0]
+        : "",
+  };
+};
+
+const mapStatusToApi = (status) => {
+  if (status === "confirmed") return "reserved";
+  return status;
+};
+
+const formatTimeForApi = (time) => {
+  if (!time) return "";
+  const raw = String(time).trim();
+
+  if (/^\d{1,2}:\d{2}$/.test(raw)) {
+    const [hours, minutes] = raw.split(":");
+    const hh = String(hours).padStart(2, "0");
+    const mm = String(minutes).padStart(2, "0");
+    return `${hh}:${mm}`;
+  }
+
+  const match = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+  if (!match) return raw;
+
+  let hours = Number(match[1]);
+  const minutes = match[2] ? Number(match[2]) : 0;
+  const meridiem = match[3].toUpperCase();
+
+  if (meridiem === "PM" && hours < 12) hours += 12;
+  if (meridiem === "AM" && hours === 12) hours = 0;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+};
+
 // Helper to initialize Local Storage
 const initLocalStorage = () => {
   if (!localStorage.getItem("restaurant_platform_restaurants")) {
@@ -232,9 +324,21 @@ export const api = {
 
   // RESERVATIONS
   getReservations: async () => {
-    await delay(300);
-    const data = localStorage.getItem("restaurant_platform_reservations");
-    return data ? JSON.parse(data) : [];
+    try {
+      const response = await axios.get(
+        `${API_URL}/reservations/my`,
+        getAuthConfig(),
+      );
+      const reservations = response.data?.data || [];
+      return Array.isArray(reservations)
+        ? reservations.map(normalizeReservation)
+        : [];
+    } catch (err) {
+      console.error("Failed to fetch reservations from backend:", err);
+      await delay(300);
+      const data = localStorage.getItem("restaurant_platform_reservations");
+      return data ? JSON.parse(data) : [];
+    }
   },
 
   getReservationsForRestaurant: async (restaurantId) => {
@@ -246,54 +350,155 @@ export const api = {
   },
 
   createReservation: async (res) => {
-    await delay(500);
-    const data = localStorage.getItem("restaurant_platform_reservations");
-    const list = data ? JSON.parse(data) : [];
 
-    const newRes = {
-      ...res,
-      id: `res-${Math.floor(1000 + Math.random() * 9000)}`, // Generates a clean 4-digit booking passcode
-      status: "confirmed", // Defaults to confirmed directly for rich immediate testing
-      createdAt: new Date().toISOString(),
-      tableNumber: Math.floor(1 + Math.random() * 20), // Simulated table assignment
+
+    const payload = {
+      restaurantId: res.restaurantId,
+      date: res.date,
+      time: formatTimeForApi(res.time),
+      partySize: res.partySize ?? res.guests ?? 1,
     };
 
-    list.unshift(newRes);
-    localStorage.setItem(
-      "restaurant_platform_reservations",
-      JSON.stringify(list),
-    );
-    return newRes;
-  },
+    console.log("Creating reservation with payload:", payload);
 
-  updateReservationStatus: async (id, status) => {
-    await delay(350);
-    const data = localStorage.getItem("restaurant_platform_reservations");
-    if (!data) throw new Error("No reservoirs found");
-    const list = JSON.parse(data);
-    const idx = list.findIndex((r) => r.id === id);
-    if (idx === -1) throw new Error("Reservation not found");
+    try {
+      const response = await axios.post(
+        `${API_URL}/reservations`,
+        payload,
+        getAuthConfig(),
+      );
+      const created = normalizeReservation(response.data?.data || response.data);
+      return {
+        ...created,
+        restaurantId: res.restaurantId || created.restaurantId,
+        restaurantName: res.restaurantName || created.restaurantName,
+        restaurantCuisine: res.restaurantCuisine || created.restaurantCuisine,
+        restaurantImage: res.restaurantImage || created.restaurantImage || res.image || "",
+        customerName: res.customerName || created.customerName,
+        customerEmail: res.customerEmail || created.customerEmail,
+        customerPhone: res.customerPhone || created.customerPhone,
+        guests: res.guests || res.partySize || created.guests,
+        partySize: res.partySize ?? res.guests ?? created.partySize ?? 1,
+        specialRequests: res.specialRequests || created.specialRequests,
+      };
+    } catch (err) {
+      console.error("Failed to create reservation via backend:", err);
+      await delay(500);
+      const data = localStorage.getItem("restaurant_platform_reservations");
+      const list = data ? JSON.parse(data) : [];
 
-    list[idx].status = status;
-    localStorage.setItem(
-      "restaurant_platform_reservations",
-      JSON.stringify(list),
-    );
-    return list[idx];
-  },
+      const newRes = {
+        ...res,
+        partySize: res.partySize ?? res.guests ?? 1,
+        guests: res.guests ?? res.partySize ?? 1,
+        restaurantImage: res.restaurantImage || res.image || "",
+        id: `res-${Math.floor(1000 + Math.random() * 9000)}`,
+        status: "confirmed",
+        createdAt: new Date().toISOString(),
+        tableNumber: Math.floor(1 + Math.random() * 20),
+      };
 
-  cancelReservation: async (id) => {
-    await delay(350);
-    const data = localStorage.getItem("restaurant_platform_reservations");
-    if (!data) return;
-    const list = JSON.parse(data);
-    const idx = list.findIndex((r) => r.id === id);
-    if (idx !== -1) {
-      list[idx].status = "cancelled";
+      list.unshift(newRes);
       localStorage.setItem(
         "restaurant_platform_reservations",
         JSON.stringify(list),
       );
+      return newRes;
+    }
+  },
+
+  updateReservation: async (id, update) => {
+    const payload = {
+      ...(update.restaurantId ? { restaurantId: update.restaurantId } : {}),
+      ...(update.date ? { date: update.date } : {}),
+      ...(update.time ? { time: update.time } : {}),
+      ...(update.guests ? { partySize: update.guests } : {}),
+      ...(update.partySize ? { partySize: update.partySize } : {}),
+      ...(update.status ? { status: mapStatusToApi(update.status) } : {}),
+    };
+
+    try {
+      const response = await axios.put(
+        `${API_URL}/reservations/${id}`,
+        payload,
+        getAuthConfig(),
+      );
+      return normalizeReservation(response.data?.data || response.data);
+    } catch (err) {
+      console.error("Failed to update reservation via backend:", err);
+      await delay(350);
+      const data = localStorage.getItem("restaurant_platform_reservations");
+      if (!data) throw err;
+      const list = JSON.parse(data);
+      const idx = list.findIndex((r) => r.id === id);
+      if (idx === -1) throw new Error("Reservation not found");
+      list[idx] = {
+        ...list[idx],
+        ...update,
+        status: update.status || list[idx].status,
+      };
+      localStorage.setItem(
+        "restaurant_platform_reservations",
+        JSON.stringify(list),
+      );
+      return list[idx];
+    }
+  },
+
+  updateReservationStatus: async (id, status) => {
+    const apiStatus = mapStatusToApi(status);
+
+    try {
+      if (status === "cancelled") {
+        return api.cancelReservation(id);
+      }
+
+      const response = await axios.put(
+        `${API_URL}/reservations/${id}`,
+        { status: apiStatus },
+        getAuthConfig(),
+      );
+      return normalizeReservation(response.data?.data || response.data);
+    } catch (err) {
+      console.error("Failed to update reservation status via backend:", err);
+      await delay(350);
+      const data = localStorage.getItem("restaurant_platform_reservations");
+      if (!data) throw err;
+      const list = JSON.parse(data);
+      const idx = list.findIndex((r) => r.id === id);
+      if (idx === -1) throw new Error("Reservation not found");
+      list[idx].status = status;
+      localStorage.setItem(
+        "restaurant_platform_reservations",
+        JSON.stringify(list),
+      );
+      return list[idx];
+    }
+  },
+
+  cancelReservation: async (id) => {
+    try {
+      await axios.delete(
+        `${API_URL}/reservations/${id}`,
+        getAuthConfig(),
+      );
+      return { id, status: "cancelled" };
+    } catch (err) {
+      console.error("Failed to cancel reservation via backend:", err);
+      await delay(350);
+      const data = localStorage.getItem("restaurant_platform_reservations");
+      if (!data) return { id, status: "cancelled" };
+      const list = JSON.parse(data);
+      const idx = list.findIndex((r) => r.id === id);
+      if (idx !== -1) {
+        list[idx].status = "cancelled";
+        localStorage.setItem(
+          "restaurant_platform_reservations",
+          JSON.stringify(list),
+        );
+        return list[idx];
+      }
+      return { id, status: "cancelled" };
     }
   },
 

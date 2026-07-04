@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { RatingStars } from '../components/RatingStars';
 import { Calendar, Clock, Users, Ban, Sparkles, Star, History, BookmarkCheck, UtensilsCrossed } from 'lucide-react';
@@ -11,14 +11,19 @@ import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 
 export const CustomerDashboard = () => {
-  const { currentUser, reservations, cancelUserReservation, openAuthModal } = useApp();
+  const { currentUser, reservations, cancelUserReservation, updateUserReservation, openAuthModal } = useApp();
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ date: '', time: '', guests: 2 });
 
   // Filter individual user reservations (matched by mock email or name)
   const userReservations = useMemo(() => {
     if (!currentUser) return [];
-    return reservations.filter(
-      r => r.customerEmail.toLowerCase() === currentUser.email.toLowerCase()
-    );
+    const currentUserEmail = (currentUser.email || "").toLowerCase();
+
+    return reservations.filter((r) => {
+      const reservationEmail = (r.customerEmail || r.userEmail || currentUserEmail || "").toLowerCase();
+      return reservationEmail === currentUserEmail;
+    });
   }, [reservations, currentUser]);
 
   // Divide into upcoming and past
@@ -43,6 +48,28 @@ export const CustomerDashboard = () => {
   const handleCancelClick = async (id) => {
     if (window.confirm('Are you sure you want to cancel this reservation? The table will be immediately opened to other guests.')) {
       await cancelUserReservation(id);
+    }
+  };
+
+  const handleEditStart = (reservation) => {
+    setEditingId(reservation.id);
+    setEditForm({
+      date: reservation.date || '',
+      time: reservation.time || '',
+      guests: reservation.guests || reservation.partySize || 2,
+    });
+  };
+
+  const handleEditSave = async (id) => {
+    try {
+      await updateUserReservation(id, {
+        date: editForm.date,
+        time: editForm.time,
+        guests: Number(editForm.guests),
+      });
+      setEditingId(null);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -162,31 +189,71 @@ export const CustomerDashboard = () => {
 
                         {/* Timing particulars */}
                         <div className="grid grid-cols-3 sm:flex items-center gap-4 sm:gap-6 text-xs text-slate-655 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
-                          <div>
-                            <div className="flex items-center gap-1 text-slate-400 font-bold text-[9px] uppercase">
-                              <Calendar size={11} className="text-slate-400" />
-                              <span>Date</span>
+                          {editingId === res.id ? (
+                            <div className="flex flex-col gap-2 w-full sm:min-w-[220px]">
+                              <input
+                                type="date"
+                                value={editForm.date}
+                                onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                                className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                              />
+                              <input
+                                type="time"
+                                value={editForm.time}
+                                onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
+                                className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                              />
+                              <input
+                                type="number"
+                                min="1"
+                                value={editForm.guests}
+                                onChange={(e) => setEditForm({ ...editForm, guests: e.target.value })}
+                                className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleEditSave(res.id)}
+                                  className="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-2.5 py-1 rounded-lg"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => setEditingId(null)}
+                                  className="text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
                             </div>
-                            <span className="font-extrabold text-slate-805 block mt-0.5">
-                              {new Date(res.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </span>
-                          </div>
+                          ) : (
+                            <>
+                              <div>
+                                <div className="flex items-center gap-1 text-slate-400 font-bold text-[9px] uppercase">
+                                  <Calendar size={11} className="text-slate-400" />
+                                  <span>Date</span>
+                                </div>
+                                <span className="font-extrabold text-slate-805 block mt-0.5">
+                                  {new Date(res.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </span>
+                              </div>
 
-                          <div>
-                            <div className="flex items-center gap-1 text-slate-400 font-bold text-[9px] uppercase">
-                              <Clock size={11} className="text-slate-400" />
-                              <span>Time</span>
-                            </div>
-                            <span className="font-extrabold text-slate-805 block mt-0.5">{res.time}</span>
-                          </div>
+                              <div>
+                                <div className="flex items-center gap-1 text-slate-400 font-bold text-[9px] uppercase">
+                                  <Clock size={11} className="text-slate-400" />
+                                  <span>Time</span>
+                                </div>
+                                <span className="font-extrabold text-slate-805 block mt-0.5">{res.time}</span>
+                              </div>
 
-                          <div>
-                            <div className="flex items-center gap-1 text-slate-400 font-bold text-[9px] uppercase">
-                              <Users size={11} className="text-slate-400" />
-                              <span>Seats</span>
-                            </div>
-                            <span className="font-extrabold text-slate-850 block mt-0.5">{res.guests} Guests</span>
-                          </div>
+                              <div>
+                                <div className="flex items-center gap-1 text-slate-400 font-bold text-[9px] uppercase">
+                                  <Users size={11} className="text-slate-400" />
+                                  <span>Seats</span>
+                                </div>
+                                <span className="font-extrabold text-slate-850 block mt-0.5">{res.guests} Guests</span>
+                              </div>
+                            </>
+                          )}
                         </div>
 
                         {/* Status badge & cancel triggers */}
@@ -201,14 +268,25 @@ export const CustomerDashboard = () => {
                             {res.status}
                           </span>
 
-                          <button
-                            onClick={() => handleCancelClick(res.id)}
-                            className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 py-1 px-2.5 hover:bg-rose-50 rounded-xl transition cursor-pointer"
-                            id={`cancel-btn-${res.id}`}
-                          >
-                            <Ban size={12} />
-                            <span>Cancel Seat</span>
-                          </button>
+                          <div className="flex flex-col gap-2 items-end">
+                            <button
+                              onClick={() => handleEditStart(res)}
+                              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 py-1 px-2.5 hover:bg-indigo-50 rounded-xl transition cursor-pointer"
+                              id={`edit-btn-${res.id}`}
+                            >
+                              <Calendar size={12} />
+                              <span>Edit</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleCancelClick(res.id)}
+                              className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 py-1 px-2.5 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                              id={`cancel-btn-${res.id}`}
+                            >
+                              <Ban size={12} />
+                              <span>Cancel Seat</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

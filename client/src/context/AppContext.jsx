@@ -333,6 +333,20 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const updateUserReservation = async (id, updates) => {
+    try {
+      const updated = await api.updateReservation(id, updates);
+      setReservations((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, ...updated } : r)),
+      );
+      showToast("Reservation updated successfully.", "success");
+      return updated;
+    } catch (err) {
+      showToast("Failed to update reservation.", "error");
+      throw err;
+    }
+  };
+
   const changeBookingStatus = async (id, status) => {
     try {
       const updated = await api.updateReservationStatus(id, status);
@@ -407,6 +421,7 @@ export const AppProvider = ({ children }) => {
         refreshReservations,
         addNewReservation,
         cancelUserReservation,
+        updateUserReservation,
         changeBookingStatus,
         submitRestaurantReview,
         updateRestaurantProfile,

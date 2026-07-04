@@ -72,6 +72,7 @@ exports.createReservation = async (req, res) => {
 
     const reservation = await Reservation.create({
       restaurantId,
+      restaurantImage: restaurant.image || "",
       userId,
       date: reservationDate,
       time,
@@ -100,7 +101,7 @@ exports.getMyReservations = async (req, res) => {
   try {
     const userId = req.user?.id;
     const reservations = await Reservation.find({ userId, status: "reserved" })
-      .populate("restaurantId", "name city address capacity")
+      .populate("restaurantId", "name city address capacity image")
       .sort({ date: -1, time: 1 });
 
     res.status(200).json({
@@ -157,6 +158,14 @@ exports.updateReservation = async (req, res) => {
       });
     }
 
+    const status = req.body.status;
+    if (status && !["reserved", "cancelled"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status value",
+      });
+    }
+
     const restaurant = await Restaurant.findById(updatedRestaurantId);
     if (!restaurant || !restaurant.isActive) {
       return res.status(404).json({
@@ -165,27 +174,33 @@ exports.updateReservation = async (req, res) => {
       });
     }
 
-    const reservedSeats = await getReservedSeats(
-      updatedRestaurantId,
-      updatedDate,
-      updatedTime,
-    );
+    if (status !== "cancelled") {
+      const reservedSeats = await getReservedSeats(
+        updatedRestaurantId,
+        updatedDate,
+        updatedTime,
+      );
 
-    const seatsAfterUpdate = reservedSeats - reservation.partySize + Number(updatedPartySize);
-    if (seatsAfterUpdate > restaurant.capacity) {
-      return res.status(400).json({
-        success: false,
-        message: "Not enough seats available for the requested time",
-      });
+      const seatsAfterUpdate = reservedSeats - reservation.partySize + Number(updatedPartySize);
+      if (seatsAfterUpdate > restaurant.capacity) {
+        return res.status(400).json({
+          success: false,
+          message: "Not enough seats available for the requested time",
+        });
+      }
     }
 
     const oldRestaurantId = reservation.restaurantId.toString();
     const oldDate = reservation.date.toISOString().split("T")[0];
 
     reservation.restaurantId = updatedRestaurantId;
+    reservation.restaurantImage = restaurant.image || "";
     reservation.date = updatedDate;
     reservation.time = updatedTime;
     reservation.partySize = updatedPartySize;
+    if (status) {
+      reservation.status = status;
+    }
     await reservation.save();
 
     // Broadcast availability updates for both old and new slots
@@ -235,7 +250,8 @@ exports.deleteReservation = async (req, res) => {
     const restaurantId = reservation.restaurantId.toString();
     const date = reservation.date.toISOString().split("T")[0];
 
-    await reservation.deleteOne();
+    reservation.status = "cancelled";
+    await reservation.save();
 
     // Broadcast availability update
     if (io) {
@@ -245,6 +261,7 @@ exports.deleteReservation = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Reservation cancelled successfully",
+      data: reservation,
     });
   } catch (error) {
     res.status(500).json({
