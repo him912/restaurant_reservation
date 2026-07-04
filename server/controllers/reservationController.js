@@ -72,7 +72,7 @@ exports.createReservation = async (req, res) => {
 
     const reservation = await Reservation.create({
       restaurantId,
-      restaurantImage: restaurant.image || "",
+      restaurantImage: restaurant.restaurantImage || "",
       userId,
       date: reservationDate,
       time,
