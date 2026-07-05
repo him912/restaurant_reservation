@@ -34,6 +34,21 @@ const protect = async (req, res, next) => {
   }
 };
 
+const optionalProtect = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.split(" ")[1];
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded;
+    } catch (error) {
+      // If token is invalid, do not block public access.
+      req.user = null;
+    }
+  }
+  next();
+};
+
 const adminOnly = async (req, res, next) => {
   if (req.user?.role !== "admin") {
     return res.status(403).json({
@@ -54,4 +69,4 @@ const ownerOnly = async (req, res, next) => {
   next();
 };
 
-module.exports = { protect, adminOnly, ownerOnly };
+module.exports = { protect, adminOnly, ownerOnly, optionalProtect };

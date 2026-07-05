@@ -30,7 +30,7 @@ const {
   deleteGalleryImage,
 } = require("../controllers/restaurantController");
 const { getRestaurantAvailability } = require("../controllers/reservationController");
-const { protect, ownerOnly } = require("../middleware/authMiddleware");
+const { protect, ownerOnly, optionalProtect } = require("../middleware/authMiddleware");
 
 // Create restaurant
 router.post("/", protect, createRestaurant);
@@ -68,7 +68,7 @@ router.delete(
 router.get("/:id/availability", getRestaurantAvailability);
 
 // Get all restaurants with search and filters
-router.get("/", getAllRestaurants);
+router.get("/", optionalProtect, getAllRestaurants);
 
 // Get restaurant by ID
 router.get("/:id", getRestaurantById);

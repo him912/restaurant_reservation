@@ -81,6 +81,9 @@ exports.getAllRestaurants = async (req, res) => {
     } = req.query;
 
     const query = { isActive: true };
+    if (req.user?.role === "restaurant_owner") {
+      query.ownerId = req.user.id;
+    }
 
     if (search) {
       const regex = new RegExp(escapeRegExp(search), "i");
