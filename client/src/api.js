@@ -343,6 +343,24 @@ export const api = {
     }
   },
 
+  addMenuItem: async (restaurantId, item) => {
+    if (!restaurantId) {
+      throw new Error("restaurantId is required");
+    }
+
+    try {
+      const response = await axios.post(
+        `${API_URL}/restaurants/own/${restaurantId}/menu`,
+        item,
+        getAuthConfig(),
+      );
+      return response.data?.data || response.data;
+    } catch (err) {
+      console.error("Failed to add menu item:", err);
+      throw err;
+    }
+  },
+
   // REVIEWS
   getReviewsByRestaurantId: async (restaurantId) => {
     try {

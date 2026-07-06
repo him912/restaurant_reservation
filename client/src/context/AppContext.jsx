@@ -403,6 +403,24 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const addMenuItem = async (restaurantId, item) => {
+    try {
+      const updatedRestaurant = await api.addMenuItem(restaurantId, item);
+      setRestaurants((prev) =>
+        prev.map((restaurant) =>
+          restaurant.id === updatedRestaurant.id || restaurant._id === updatedRestaurant.id
+            ? updatedRestaurant
+            : restaurant,
+        ),
+      );
+      showToast("Menu item added successfully.", "success");
+      return updatedRestaurant;
+    } catch (err) {
+      showToast("Failed to add menu item.", "error");
+      throw err;
+    }
+  };
+
   const updateRestaurantProfile = async (updated) => {
     try {
       const saved = await api.updateRestaurant(updated);
@@ -475,6 +493,7 @@ export const AppProvider = ({ children }) => {
         updateRestaurantProfile,
         deleteRestaurant,
         uploadRestaurantGallery,
+        addMenuItem,
         toast,
         showToast,
         hideToast,

@@ -32,6 +32,7 @@ export const OwnerDashboard = () => {
     uploadRestaurantGallery,
     updateRestaurantProfile,
     deleteRestaurant,
+    addMenuItem,
     showToast,
   } = useApp();
 
@@ -49,6 +50,12 @@ export const OwnerDashboard = () => {
   const [newRestaurantImageFile, setNewRestaurantImageFile] = useState(null);
   const [newRestaurantCapacity, setNewRestaurantCapacity] = useState(20);
   const [newRestaurantOpeningTime, setNewRestaurantOpeningTime] = useState('09:00');
+  const [newMenuItemName, setNewMenuItemName] = useState('');
+  const [newMenuItemDescription, setNewMenuItemDescription] = useState('');
+  const [newMenuItemCategory, setNewMenuItemCategory] = useState('Desserts');
+  const [newMenuItemPrice, setNewMenuItemPrice] = useState('');
+  const [newMenuItemImage, setNewMenuItemImage] = useState('');
+  const [newMenuItemAvailable, setNewMenuItemAvailable] = useState(true);
   const [newRestaurantClosingTime, setNewRestaurantClosingTime] = useState('22:00');
   const [newRestaurantPriceRange, setNewRestaurantPriceRange] = useState('$$');
   const [newRestaurantFeatures, setNewRestaurantFeatures] = useState([]);
@@ -172,6 +179,33 @@ export const OwnerDashboard = () => {
       showToast('Restaurant created successfully.', 'success');
     } catch (error) {
       console.error('Create restaurant failed:', error);
+    }
+  };
+
+  const handleAddMenuItemSubmit = async (e) => {
+    e.preventDefault();
+    if (!restaurant) return;
+
+    const payload = {
+      name: newMenuItemName.trim(),
+      description: newMenuItemDescription.trim(),
+      category: newMenuItemCategory.trim(),
+      price: Number(newMenuItemPrice) || 0,
+      image: newMenuItemImage.trim(),
+      available: newMenuItemAvailable,
+    };
+
+    try {
+      await addMenuItem(restaurant.id || restaurant._id, payload);
+      setNewMenuItemName('');
+      setNewMenuItemDescription('');
+      setNewMenuItemCategory('Desserts');
+      setNewMenuItemPrice('');
+      setNewMenuItemImage('');
+      setNewMenuItemAvailable(true);
+      showToast('Menu item added successfully.', 'success');
+    } catch (error) {
+      console.error('Add menu item failed:', error);
     }
   };
 
@@ -817,8 +851,97 @@ export const OwnerDashboard = () => {
                   </div>
                 </div>
               </div>
-            </div>
 
+              {restaurant && !isCreateMode && (
+                <div className="bg-white rounded-3xl border border-slate-100 p-6 md:p-8 shadow-sm mt-6" id="owner-menu-management">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
+                    <div>
+                      <h3 className="text-lg font-extrabold text-slate-900">Add Restaurant Menu Item</h3>
+                      <p className="text-slate-405 text-[11px] font-semibold">Create a new menu item for this restaurant.</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleAddMenuItemSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">Dish Name</label>
+                        <input
+                          type="text"
+                          value={newMenuItemName}
+                          onChange={(e) => setNewMenuItemName(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">Category</label>
+                        <input
+                          type="text"
+                          value={newMenuItemCategory}
+                          onChange={(e) => setNewMenuItemCategory(e.target.value)}
+                          placeholder="Desserts"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">Description</label>
+                      <textarea
+                        rows={3}
+                        value={newMenuItemDescription}
+                        onChange={(e) => setNewMenuItemDescription(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">Price</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={newMenuItemPrice}
+                          onChange={(e) => setNewMenuItemPrice(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">Image URL</label>
+                        <input
+                          type="text"
+                          value={newMenuItemImage}
+                          onChange={(e) => setNewMenuItemImage(e.target.value)}
+                          placeholder="https://example.com/dish.jpg"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                        />
+                      </div>
+                      <div className="flex flex-col justify-end">
+                        <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">Available</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={newMenuItemAvailable}
+                            onChange={(e) => setNewMenuItemAvailable(e.target.checked)}
+                            className="h-4 w-4 text-indigo-600 border-slate-300 rounded"
+                          />
+                          <span className="text-xs font-semibold text-slate-600">Available</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100">
+                      <button
+                        type="submit"
+                        className="w-full px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md transition"
+                      >
+                        Add Menu Item
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+            </div>
           </div>
         )}
       </div>
