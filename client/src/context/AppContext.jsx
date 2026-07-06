@@ -370,6 +370,39 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const createRestaurant = async (restaurantData) => {
+    try {
+      const created = await api.createRestaurant(restaurantData);
+      setRestaurants((prev) => [created, ...prev]);
+      showToast("Restaurant added successfully.", "success");
+      return created;
+    } catch (err) {
+      showToast("Failed to add restaurant.", "error");
+      throw err;
+    }
+  };
+
+  const uploadRestaurantGallery = async (restaurantId, files = []) => {
+    try {
+      const updatedRestaurant = await api.uploadRestaurantGallery(
+        restaurantId,
+        files,
+      );
+      setRestaurants((prev) =>
+        prev.map((restaurant) =>
+          restaurant.id === updatedRestaurant.id || restaurant._id === updatedRestaurant.id
+            ? updatedRestaurant
+            : restaurant,
+        ),
+      );
+      showToast("Gallery images uploaded successfully.", "success");
+      return updatedRestaurant;
+    } catch (err) {
+      showToast("Failed to upload gallery images.", "error");
+      throw err;
+    }
+  };
+
   const updateRestaurantProfile = async (updated) => {
     try {
       const saved = await api.updateRestaurant(updated);
@@ -379,8 +412,21 @@ export const AppProvider = ({ children }) => {
       showToast("Restaurant details updated successfully.", "success");
     } catch (err) {
       showToast("Failed to update restaurant profile.", "error");
+      throw err;
     }
   };
+
+  const deleteRestaurant = async (restaurantId) => {
+    try {
+      await api.deleteRestaurant(restaurantId);
+      setRestaurants((prev) => prev.filter((r) => r.id !== restaurantId));
+      showToast("Restaurant deleted successfully.", "success");
+    } catch (err) {
+      showToast("Failed to delete restaurant.", "error");
+      throw err;
+    }
+  };
+
   const fetchProfile = async () => {
     try {
       const data = await api.getProfile();
@@ -425,7 +471,10 @@ export const AppProvider = ({ children }) => {
         updateUserReservation,
         changeBookingStatus,
         submitRestaurantReview,
+        createRestaurant,
         updateRestaurantProfile,
+        deleteRestaurant,
+        uploadRestaurantGallery,
         toast,
         showToast,
         hideToast,

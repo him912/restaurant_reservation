@@ -33,7 +33,7 @@ const { getRestaurantAvailability } = require("../controllers/reservationControl
 const { protect, ownerOnly, optionalProtect } = require("../middleware/authMiddleware");
 
 // Create restaurant
-router.post("/", protect, createRestaurant);
+router.post("/", protect, ownerOnly, upload.single("restaurantImage"), createRestaurant);
 
 // Get available filter values for restaurants
 router.get("/filters", getRestaurantFilters);
@@ -42,7 +42,7 @@ router.get("/filters", getRestaurantFilters);
 router.get("/own/details", protect, ownerOnly, getOwnRestaurant);
 
 // Owner routes - manage profile
-router.put("/own/profile", protect, ownerOnly, updateRestaurantProfile);
+router.put("/own/profile", protect, ownerOnly, upload.single("restaurantImage"), updateRestaurantProfile);
 
 // Owner routes - menu management for a specific restaurant
 router.post("/own/:restaurantId/menu", protect, ownerOnly, addMenuItem);
@@ -74,9 +74,9 @@ router.get("/", optionalProtect, getAllRestaurants);
 router.get("/:id", getRestaurantById);
 
 // Update restaurant
-router.put("/:id", protect, updateRestaurant);
+router.put("/:id", protect, ownerOnly, upload.single("restaurantImage"), updateRestaurant);
 
 // Delete restaurant
-router.delete("/:id", protect, deleteRestaurant);
+router.delete("/:id", protect, ownerOnly, deleteRestaurant);
 
 module.exports = router;

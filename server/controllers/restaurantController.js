@@ -1,6 +1,38 @@
 const Restaurant = require("../models/Restaurant");
 const cloudinary = require("../utils/cloudinary");
 
+const parseArrayField = (value) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (_) {}
+
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const uploadBufferToCloudinary = async (file) => {
+  if (!file?.buffer) throw new Error("No file buffer provided");
+
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { folder: "restaurant_images" },
+      (error, uploadedImage) => {
+        if (error) return reject(error);
+        resolve(uploadedImage.secure_url);
+      },
+    );
+
+    uploadStream.end(file.buffer);
+  });
+};
+
 // ================= CREATE RESTAURANT =================
 exports.createRestaurant = async (req, res) => {
   try {
@@ -21,6 +53,14 @@ exports.createRestaurant = async (req, res) => {
       features,
     } = req.body;
 
+    const parsedCuisineType = parseArrayField(cuisineType);
+    const parsedFeatures = parseArrayField(features);
+    let resolvedRestaurantImage = restaurantImage;
+
+    if (req.file) {
+      resolvedRestaurantImage = await uploadBufferToCloudinary(req.file);
+    }
+
     // Validation
     if (!name || !address || !city || !phone || !email) {
       return res.status(400).json({
@@ -30,20 +70,21 @@ exports.createRestaurant = async (req, res) => {
     }
 
     const restaurant = await Restaurant.create({
+      ownerId: req.user?.id,
       name,
       description,
-      cuisineType,
+      cuisineType: parsedCuisineType,
       address,
       city,
       phone,
       email,
       website,
-      restaurantImage,
+      restaurantImage: resolvedRestaurantImage,
       capacity,
       openingTime,
       closingTime,
       priceRange,
-      features,
+      features: parsedFeatures,
     });
 
     res.status(201).json({
@@ -218,19 +259,38 @@ exports.getRestaurantById = async (req, res) => {
 exports.updateRestaurant = async (req, res) => {
   try {
     const { id } = req.params;
-    const update = req.body;
+    const update = { ...req.body };
+    const userId = req.user?.id;
 
-    const restaurant = await Restaurant.findByIdAndUpdate(id, update, {
-      new: true,
-      runValidators: true,
-    });
+    if (req.body.cuisineType !== undefined) {
+      update.cuisineType = parseArrayField(req.body.cuisineType);
+    }
 
+    if (req.body.features !== undefined) {
+      update.features = parseArrayField(req.body.features);
+    }
+
+    if (req.file) {
+      update.restaurantImage = await uploadBufferToCloudinary(req.file);
+    }
+
+    const restaurant = await Restaurant.findById(id);
     if (!restaurant) {
       return res.status(404).json({
         success: false,
         message: "Restaurant not found",
       });
     }
+
+    if (restaurant.ownerId?.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to update this restaurant",
+      });
+    }
+
+    Object.assign(restaurant, update);
+    await restaurant.save();
 
     res.status(200).json({
       success: true,
@@ -249,15 +309,24 @@ exports.updateRestaurant = async (req, res) => {
 exports.deleteRestaurant = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user?.id;
 
-    const restaurant = await Restaurant.findByIdAndDelete(id);
-
+    const restaurant = await Restaurant.findById(id);
     if (!restaurant) {
       return res.status(404).json({
         success: false,
         message: "Restaurant not found",
       });
     }
+
+    if (restaurant.ownerId?.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to delete this restaurant",
+      });
+    }
+
+    await restaurant.deleteOne();
 
     res.status(200).json({
       success: true,
@@ -288,7 +357,7 @@ exports.getOwnRestaurant = async (req, res) => {
     res.status(200).json({
       success: true,
       data: restaurant,
-    });
+    }); 
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -331,7 +400,7 @@ exports.updateRestaurantProfile = async (req, res) => {
     const update = {};
     if (name !== undefined) update.name = name;
     if (description !== undefined) update.description = description;
-    if (cuisineType !== undefined) update.cuisineType = cuisineType;
+    if (cuisineType !== undefined) update.cuisineType = parseArrayField(cuisineType);
     if (address !== undefined) update.address = address;
     if (city !== undefined) update.city = city;
     if (state !== undefined) update.state = state;
@@ -339,7 +408,11 @@ exports.updateRestaurantProfile = async (req, res) => {
     if (phone !== undefined) update.phone = phone;
     if (email !== undefined) update.email = email;
     if (website !== undefined) update.website = website;
-    if (restaurantImage !== undefined) update.restaurantImage = restaurantImage;
+    if (req.file) {
+      update.restaurantImage = await uploadBufferToCloudinary(req.file);
+    } else if (restaurantImage !== undefined) {
+      update.restaurantImage = restaurantImage;
+    }
     if (capacity !== undefined) update.capacity = capacity;
     if (openingTime !== undefined) update.openingTime = openingTime;
     if (closingTime !== undefined) update.closingTime = closingTime;

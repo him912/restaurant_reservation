@@ -175,12 +175,8 @@ export const api = {
   // RESTAURANTS
   getRestaurants: async () => {
     try {
-      console.log(`Fetching restaurants from backend: ${API_URL}/restaurants/`);
-      const response = await axios.get(`${API_URL}/restaurants/`, {
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await axios.get(`${API_URL}/restaurants/`, getAuthConfig());
       console.log("Fetched restaurants from backend:", response.data);
-      // Extract data array from the nested response structure
       const data = response.data?.data || response.data || [];
       return Array.isArray(data) ? data : [];
     } catch (err) {
@@ -210,19 +206,141 @@ export const api = {
   },
 
   updateRestaurant: async (updated) => {
-    await delay(400);
-    const data = localStorage.getItem("restaurant_platform_restaurants");
-    if (!data) throw new Error("Data not found");
-    const list = JSON.parse(data);
-    const idx = list.findIndex((r) => r.id === updated.id);
-    if (idx !== -1) {
-      list[idx] = updated;
+    const restaurantId = updated.id || updated._id;
+    const payload = { ...updated };
+    delete payload.id;
+    delete payload._id;
+
+    try {
+      const response = await axios.put(
+        `${API_URL}/restaurants/${restaurantId}`,
+        payload,
+        getAuthConfig(),
+      );
+      return response.data?.data || response.data;
+    } catch (err) {
+      console.error("Failed to update restaurant via backend:", err);
+      await delay(400);
+      const data = localStorage.getItem("restaurant_platform_restaurants");
+      if (!data) throw err;
+      const list = JSON.parse(data);
+      const idx = list.findIndex((r) => r.id === restaurantId);
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...updated };
+        localStorage.setItem(
+          "restaurant_platform_restaurants",
+          JSON.stringify(list),
+        );
+        return list[idx];
+      }
+      throw err;
+    }
+  },
+
+  createRestaurant: async (restaurantData) => {
+    try {
+      let config = getAuthConfig();
+      let payload = restaurantData;
+
+      if (restaurantData.restaurantImage instanceof File) {
+        payload = new FormData();
+        payload.append("name", restaurantData.name);
+        payload.append("description", restaurantData.description);
+        payload.append("cuisineType", JSON.stringify(restaurantData.cuisineType || []));
+        payload.append("address", restaurantData.address);
+        payload.append("city", restaurantData.city);
+        payload.append("phone", restaurantData.phone);
+        payload.append("email", restaurantData.email);
+        payload.append("website", restaurantData.website);
+        payload.append("capacity", restaurantData.capacity);
+        payload.append("openingTime", restaurantData.openingTime);
+        payload.append("closingTime", restaurantData.closingTime);
+        payload.append("priceRange", restaurantData.priceRange);
+        payload.append("features", JSON.stringify(restaurantData.features || []));
+        payload.append("restaurantImage", restaurantData.restaurantImage);
+
+        config = {
+          headers: {
+            ...getAuthHeaders(),
+          },
+          maxBodyLength: Infinity,
+        };
+      }
+
+      const response = await axios.post(
+        `${API_URL}/restaurants`,
+        payload,
+        config,
+      );
+      return response.data?.data || response.data;
+    } catch (err) {
+      console.error("Failed to create restaurant via backend:", err);
+      await delay(400);
+      const data = localStorage.getItem("restaurant_platform_restaurants");
+      const current = data ? JSON.parse(data) : [];
+      const newRestaurant = {
+        ...restaurantData,
+        id: `rest-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+      };
+      current.unshift(newRestaurant);
       localStorage.setItem(
         "restaurant_platform_restaurants",
-        JSON.stringify(list),
+        JSON.stringify(current),
       );
+      return newRestaurant;
     }
-    return updated;
+  },
+
+  deleteRestaurant: async (restaurantId) => {
+    try {
+      const response = await axios.delete(
+        `${API_URL}/restaurants/${restaurantId}`,
+        getAuthConfig(),
+      );
+      return response.data?.data || response.data;
+    } catch (err) {
+      console.error("Failed to delete restaurant via backend:", err);
+      await delay(400);
+      const data = localStorage.getItem("restaurant_platform_restaurants");
+      if (!data) throw err;
+      const current = JSON.parse(data).filter((r) => r.id !== restaurantId);
+      localStorage.setItem(
+        "restaurant_platform_restaurants",
+        JSON.stringify(current),
+      );
+      return { id: restaurantId };
+    }
+  },
+
+  uploadRestaurantGallery: async (restaurantId, files = []) => {
+    if (!restaurantId) {
+      throw new Error("restaurantId is required");
+    }
+
+    const formData = new FormData();
+    (files || []).slice(0, 10).forEach((file) => {
+      if (file) {
+        formData.append("images", file);
+      }
+    });
+
+    try {
+      const response = await axios.post(
+        `${API_URL}/restaurants/own/gallery/${restaurantId}`,
+        formData,
+        {
+          headers: {
+            ...getAuthHeaders(),
+          },
+          maxBodyLength: Infinity,
+        },
+      );
+      return response.data?.data || response.data;
+    } catch (err) {
+      console.error("Failed to upload gallery images:", err);
+      throw err;
+    }
   },
 
   // REVIEWS
