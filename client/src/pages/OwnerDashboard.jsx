@@ -76,6 +76,8 @@ export const OwnerDashboard = () => {
     );
   }, [restaurants, selectedRestaurantId, isCreateMode]);
 
+  const shouldShowCreateForm = isCreateMode || (!restaurant && restaurants.length === 0);
+
   useEffect(() => {
     if (restaurant && !isCreateMode) {
       setName(restaurant.name || '');
@@ -214,10 +216,14 @@ export const OwnerDashboard = () => {
 
     try {
       await deleteRestaurant(restaurant.id || restaurant._id);
-      setSelectedRestaurantId(restaurants[0]?.id || restaurants[0]?._id || null);
+      setTimeout(() => {
+        setSelectedRestaurantId(null);
+        setActiveTab('bookings');
+      }, 300);
       showToast('Restaurant deleted successfully.', 'success');
     } catch (error) {
       console.error('Delete restaurant failed:', error);
+      showToast('Failed to delete restaurant.', 'error');
     }
   };
 
@@ -520,21 +526,27 @@ export const OwnerDashboard = () => {
             {/* Form details section container */}
             <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 p-6 md:p-8 shadow-sm" id="profile-editor-box">
               <h3 className="text-lg font-black text-slate-900 mb-6 pb-4 border-b border-slate-100">Manage Restaurant Details</h3>
+
+              {shouldShowCreateForm && !restaurant && (
+                <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 font-semibold">
+                  No restaurant profile found yet. Create one below to start managing your listing.
+                </div>
+              )}
               
               <form
-                onSubmit={isCreateMode ? handleCreateRestaurantSubmit : handleProfileSubmit}
+                onSubmit={shouldShowCreateForm ? handleCreateRestaurantSubmit : handleProfileSubmit}
                 className="space-y-6"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
-                      Restaurant Name label
+                      Restaurant Name
                     </label>
                     <input
                       type="text"
-                      value={isCreateMode ? newRestaurantName : name}
+                      value={shouldShowCreateForm ? newRestaurantName : name}
                       onChange={(e) =>
-                        isCreateMode
+                        shouldShowCreateForm
                           ? setNewRestaurantName(e.target.value)
                           : setName(e.target.value)
                       }
@@ -545,7 +557,7 @@ export const OwnerDashboard = () => {
                     <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
                       Core Operations Hours
                     </label>
-                    {isCreateMode ? (
+                    {shouldShowCreateForm ? (
                       <div className="grid grid-cols-2 gap-3">
                         <input
                           type="time"
@@ -577,9 +589,9 @@ export const OwnerDashboard = () => {
                   </label>
                   <textarea
                     rows={4}
-                    value={isCreateMode ? newRestaurantDescription : description}
+                    value={shouldShowCreateForm ? newRestaurantDescription : description}
                     onChange={(e) =>
-                      isCreateMode
+                      shouldShowCreateForm
                         ? setNewRestaurantDescription(e.target.value)
                         : setDescription(e.target.value)
                     }
@@ -594,9 +606,9 @@ export const OwnerDashboard = () => {
                     </label>
                     <input
                       type="text"
-                      value={isCreateMode ? newRestaurantPhone : phone}
+                      value={shouldShowCreateForm ? newRestaurantPhone : phone}
                       onChange={(e) =>
-                        isCreateMode
+                        shouldShowCreateForm
                           ? setNewRestaurantPhone(e.target.value)
                           : setPhone(e.target.value)
                       }
@@ -605,28 +617,28 @@ export const OwnerDashboard = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
-                      Property Email
+                      Email Address
                     </label>
                     <input
                       type="email"
-                      value={isCreateMode ? newRestaurantEmail : email}
+                      value={shouldShowCreateForm ? newRestaurantEmail : email}
                       onChange={(e) =>
-                        isCreateMode
+                        shouldShowCreateForm
                           ? setNewRestaurantEmail(e.target.value)
                           : setEmail(e.target.value)
                       }
-                      className="w-full bg-slate-55 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
-                      Max Seating capacity
+                      Seating Capacity
                     </label>
                     <input
                       type="number"
-                      value={isCreateMode ? newRestaurantCapacity : capacity}
+                      value={shouldShowCreateForm ? newRestaurantCapacity : capacity}
                       onChange={(e) =>
-                        isCreateMode
+                        shouldShowCreateForm
                           ? setNewRestaurantCapacity(Number(e.target.value))
                           : setCapacity(Number(e.target.value))
                       }
@@ -635,7 +647,7 @@ export const OwnerDashboard = () => {
                   </div>
                 </div>
 
-                {isCreateMode && (
+                {shouldShowCreateForm && (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
@@ -673,7 +685,7 @@ export const OwnerDashboard = () => {
                   </div>
                 )}
 
-                {isCreateMode && (
+                {shouldShowCreateForm && (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
@@ -740,7 +752,7 @@ export const OwnerDashboard = () => {
                   </div>
                 )}
 
-                {isCreateMode && (
+                {shouldShowCreateForm && (
                   <div className="space-y-3 mt-3">
                     <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
                       Upload up to 2 photos
@@ -798,9 +810,9 @@ export const OwnerDashboard = () => {
                     className="w-full px-6 py-3.5 bg-indigo-600 hover:bg-indigo-755 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer shadow-indigo-950/15"
                   >
                     <Save size={13} />
-                    <span>{isCreateMode ? 'CREATE RESTAURANT' : 'SAVE PROFILE MODIFICATIONS'}</span>
+                    <span>{shouldShowCreateForm ? 'CREATE RESTAURANT' : 'SAVE PROFILE MODIFICATIONS'}</span>
                   </button>
-                  {!isCreateMode && restaurant && (
+                  {!shouldShowCreateForm && restaurant && (
                     <button
                       type="button"
                       onClick={handleDeleteRestaurant}
@@ -821,28 +833,28 @@ export const OwnerDashboard = () => {
                 <div className="border border-slate-150 rounded-2xl overflow-hidden shadow-xs">
                   <img
                     src={
-                      isCreateMode
+                      shouldShowCreateForm
                         ? newRestaurantImage || restaurant?.restaurantImage || ''
                         : restaurant?.restaurantImage || ''
                     }
-                    alt={isCreateMode ? newRestaurantName || restaurant?.name || 'Restaurant' : restaurant?.name || 'Restaurant'}
+                    alt={shouldShowCreateForm ? newRestaurantName || restaurant?.name || 'Restaurant' : restaurant?.name || 'Restaurant'}
                     className="w-full aspect-[16/10] object-cover"
                   />
                   <div className="p-4 bg-slate-50 border-t border-slate-150">
                     <span className="bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide">
-                      {isCreateMode
+                      {shouldShowCreateForm
                         ? newRestaurantCuisine || restaurant?.cuisineType?.[0] || 'Cuisine'
                         : restaurant?.cuisineType?.[0] || 'Cuisine'}
                     </span>
                     <h5 className="font-extrabold text-sm text-slate-900 mt-1.5 leading-tight">
-                      {isCreateMode ? newRestaurantName || 'New Restaurant' : name || restaurant?.name || 'Restaurant'}
+                      {shouldShowCreateForm ? newRestaurantName || 'New Restaurant' : name || restaurant?.name || 'Restaurant'}
                     </h5>
                     <p className="text-slate-500 text-[11px] leading-relaxed line-clamp-3 mt-1.5">
-                      {isCreateMode ? newRestaurantDescription || restaurant?.description : description || restaurant?.description}
+                      {shouldShowCreateForm ? newRestaurantDescription || restaurant?.description : description || restaurant?.description}
                     </p>
                     
                     <div className="flex gap-1.5 flex-wrap mt-3 pt-3 border-t border-slate-150">
-                      {(isCreateMode ? newRestaurantFeatures : selectedFeatures)
+                      {(shouldShowCreateForm ? newRestaurantFeatures : selectedFeatures)
                         .slice(0, 2)
                         .map((f, i) => (
                           <span key={i} className="bg-white border border-slate-150 rounded-lg px-2 py-0.5 text-[9px] font-semibold text-slate-500">{f}</span>
@@ -852,7 +864,7 @@ export const OwnerDashboard = () => {
                 </div>
               </div>
 
-              {restaurant && !isCreateMode && (
+              {restaurant && !shouldShowCreateForm && (
                 <div className="bg-white rounded-3xl border border-slate-100 p-6 md:p-8 shadow-sm mt-6" id="owner-menu-management">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
                     <div>
