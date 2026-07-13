@@ -390,7 +390,8 @@ export const AppProvider = ({ children }) => {
       );
       setRestaurants((prev) =>
         prev.map((restaurant) =>
-          restaurant.id === updatedRestaurant.id || restaurant._id === updatedRestaurant.id
+          restaurant.id === updatedRestaurant.id ||
+          restaurant._id === updatedRestaurant.id
             ? updatedRestaurant
             : restaurant,
         ),
@@ -408,7 +409,8 @@ export const AppProvider = ({ children }) => {
       const updatedRestaurant = await api.addMenuItem(restaurantId, item);
       setRestaurants((prev) =>
         prev.map((restaurant) =>
-          restaurant.id === updatedRestaurant.id || restaurant._id === updatedRestaurant.id
+          restaurant.id === updatedRestaurant.id ||
+          restaurant._id === updatedRestaurant.id
             ? updatedRestaurant
             : restaurant,
         ),
@@ -417,6 +419,62 @@ export const AppProvider = ({ children }) => {
       return updatedRestaurant;
     } catch (err) {
       showToast("Failed to add menu item.", "error");
+      throw err;
+    }
+  };
+  const updateMenuItem = async (restaurantId, itemId, updates) => {
+    try {
+      const updatedRestaurant = await api.updateMenuItem(
+        restaurantId,
+        itemId,
+        updates,
+      );
+      setRestaurants((prev) =>
+        prev.map((r) =>
+          r.id === updatedRestaurant.id || r._id === updatedRestaurant.id
+            ? updatedRestaurant
+            : r,
+        ),
+      );
+      showToast("Menu item updated successfully.", "success");
+      return updatedRestaurant;
+    } catch (err) {
+      showToast("Failed to update menu item.", "error");
+      throw err;
+    }
+  };
+
+  const deleteMenuItem = async (restaurantId, itemId) => {
+    try {
+      const result = await api.deleteMenuItem(restaurantId, itemId);
+      // If API returns full restaurant, use it; otherwise update local state
+      if (result && result.menuItems) {
+        setRestaurants((prev) =>
+          prev.map((r) =>
+            r.id === result.id || r._id === result.id ? result : r,
+          ),
+        );
+      } else {
+        setRestaurants((prev) =>
+          prev.map((r) => {
+            if (r.id === restaurantId || r._id === restaurantId) {
+              return {
+                ...r,
+                menuItems: (r.menuItems || []).filter(
+                  (it) =>
+                    (it.id || it._id || it._id?.toString()) !== itemId &&
+                    (it.id || it._id) !== itemId,
+                ),
+              };
+            }
+            return r;
+          }),
+        );
+      }
+      showToast("Menu item deleted successfully.", "success");
+      return result;
+    } catch (err) {
+      showToast("Failed to delete menu item.", "error");
       throw err;
     }
   };
@@ -506,6 +564,8 @@ export const AppProvider = ({ children }) => {
         signup,
         forgotPassword,
         logout,
+        updateMenuItem,
+        deleteMenuItem,
       }}
     >
       {children}

@@ -29,11 +29,23 @@ const {
   addGalleryImage,
   deleteGalleryImage,
 } = require("../controllers/restaurantController");
-const { getRestaurantAvailability } = require("../controllers/reservationController");
-const { protect, ownerOnly, optionalProtect } = require("../middleware/authMiddleware");
+const {
+  getRestaurantAvailability,
+} = require("../controllers/reservationController");
+const {
+  protect,
+  ownerOnly,
+  optionalProtect,
+} = require("../middleware/authMiddleware");
 
 // Create restaurant
-router.post("/", protect, ownerOnly, upload.single("restaurantImage"), createRestaurant);
+router.post(
+  "/",
+  protect,
+  ownerOnly,
+  upload.single("restaurantImage"),
+  createRestaurant,
+);
 
 // Get available filter values for restaurants
 router.get("/filters", getRestaurantFilters);
@@ -42,12 +54,28 @@ router.get("/filters", getRestaurantFilters);
 router.get("/own/details", protect, ownerOnly, getOwnRestaurant);
 
 // Owner routes - manage profile
-router.put("/own/profile", protect, ownerOnly, upload.single("restaurantImage"), updateRestaurantProfile);
+router.put(
+  "/own/profile",
+  protect,
+  ownerOnly,
+  upload.single("restaurantImage"),
+  updateRestaurantProfile,
+);
 
 // Owner routes - menu management for a specific restaurant
 router.post("/own/:restaurantId/menu", protect, ownerOnly, addMenuItem);
-router.put("/own/:restaurantId/menu/:itemId", protect, ownerOnly, updateMenuItem);
-router.delete("/own/:restaurantId/menu/:itemId", protect, ownerOnly, deleteMenuItem);
+router.put(
+  "/own/:restaurantId/menu/:itemId",
+  protect,
+  ownerOnly,
+  updateMenuItem,
+);
+router.delete(
+  "/own/:restaurantId/menu/:itemId",
+  protect,
+  ownerOnly,
+  deleteMenuItem,
+);
 
 // Owner routes - gallery management
 router.post(
@@ -74,7 +102,13 @@ router.get("/", optionalProtect, getAllRestaurants);
 router.get("/:id", getRestaurantById);
 
 // Update restaurant
-router.put("/:id", protect, ownerOnly, upload.single("restaurantImage"), updateRestaurant);
+router.put(
+  "/:id",
+  protect,
+  ownerOnly,
+  upload.single("restaurantImage"),
+  updateRestaurant,
+);
 
 // Delete restaurant
 router.delete("/:id", protect, ownerOnly, deleteRestaurant);

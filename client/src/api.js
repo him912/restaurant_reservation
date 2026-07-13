@@ -93,7 +93,8 @@ const normalizeReservation = (reservation) => {
     id,
     restaurantId,
     restaurantName: reservation.restaurantName || restaurant.name || "",
-    restaurantCuisine: reservation.restaurantCuisine || restaurant.cuisine || "",
+    restaurantCuisine:
+      reservation.restaurantCuisine || restaurant.cuisine || "",
     restaurantImage: reservation.restaurantImage || restaurant.image || "",
     customerName: fallbackCustomerName,
     customerEmail: fallbackCustomerEmail,
@@ -110,10 +111,10 @@ const normalizeReservation = (reservation) => {
       typeof reservation.date === "string"
         ? reservation.date
         : reservation.date instanceof Date
-        ? reservation.date.toISOString().split("T")[0]
-        : reservation.date
-        ? new Date(reservation.date).toISOString().split("T")[0]
-        : "",
+          ? reservation.date.toISOString().split("T")[0]
+          : reservation.date
+            ? new Date(reservation.date).toISOString().split("T")[0]
+            : "",
   };
 };
 
@@ -175,7 +176,10 @@ export const api = {
   // RESTAURANTS
   getRestaurants: async () => {
     try {
-      const response = await axios.get(`${API_URL}/restaurants/`, getAuthConfig());
+      const response = await axios.get(
+        `${API_URL}/restaurants/`,
+        getAuthConfig(),
+      );
       console.log("Fetched restaurants from backend:", response.data);
       const data = response.data?.data || response.data || [];
       return Array.isArray(data) ? data : [];
@@ -186,7 +190,7 @@ export const api = {
       return data ? JSON.parse(data) : [];
     }
   },
-  
+
   getRestaurantById: async (id) => {
     try {
       const response = await axios.get(
@@ -246,7 +250,10 @@ export const api = {
         payload = new FormData();
         payload.append("name", restaurantData.name);
         payload.append("description", restaurantData.description);
-        payload.append("cuisineType", JSON.stringify(restaurantData.cuisineType || []));
+        payload.append(
+          "cuisineType",
+          JSON.stringify(restaurantData.cuisineType || []),
+        );
         payload.append("address", restaurantData.address);
         payload.append("city", restaurantData.city);
         payload.append("phone", restaurantData.phone);
@@ -256,7 +263,10 @@ export const api = {
         payload.append("openingTime", restaurantData.openingTime);
         payload.append("closingTime", restaurantData.closingTime);
         payload.append("priceRange", restaurantData.priceRange);
-        payload.append("features", JSON.stringify(restaurantData.features || []));
+        payload.append(
+          "features",
+          JSON.stringify(restaurantData.features || []),
+        );
         payload.append("restaurantImage", restaurantData.restaurantImage);
 
         config = {
@@ -360,7 +370,32 @@ export const api = {
       throw err;
     }
   },
+  updateMenuItem: async (restaurantId, itemId, item) => {
+    try {
+      const response = await axios.put(
+        `${API_URL}/restaurants/own/${restaurantId}/menu/${itemId}`,
+        item,
+        getAuthConfig(),
+      );
+      return response.data?.data || response.data;
+    } catch (err) {
+      console.error("Failed to update menu item:", err);
+      throw err;
+    }
+  },
 
+  deleteMenuItem: async (restaurantId, itemId) => {
+    try {
+      const response = await axios.delete(
+        `${API_URL}/restaurants/own/${restaurantId}/menu/${itemId}`,
+        getAuthConfig(),
+      );
+      return response.data?.data || response.data;
+    } catch (err) {
+      console.error("Failed to delete menu item:", err);
+      throw err;
+    }
+  },
   // REVIEWS
   getReviewsByRestaurantId: async (restaurantId) => {
     try {
@@ -376,7 +411,9 @@ export const api = {
       const data = localStorage.getItem("restaurant_platform_reviews");
       if (!data) return [];
       const list = JSON.parse(data);
-      return list.filter((r) => r.restaurantId === restaurantId).map(normalizeReview);
+      return list
+        .filter((r) => r.restaurantId === restaurantId)
+        .map(normalizeReview);
     }
   },
 
@@ -428,11 +465,15 @@ export const api = {
         });
       }
 
-      const response = await axios.put(`${API_URL}/reviews/${reviewId}`, formData, {
-        headers: {
-          ...getAuthHeaders(),
+      const response = await axios.put(
+        `${API_URL}/reviews/${reviewId}`,
+        formData,
+        {
+          headers: {
+            ...getAuthHeaders(),
+          },
         },
-      });
+      );
       return normalizeReview(response.data?.data || response.data);
     } catch (err) {
       console.error("Failed to update review:", err);
@@ -486,8 +527,6 @@ export const api = {
   },
 
   createReservation: async (res) => {
-
-
     const payload = {
       restaurantId: res.restaurantId,
       date: res.date,
@@ -503,13 +542,16 @@ export const api = {
         payload,
         getAuthConfig(),
       );
-      const created = normalizeReservation(response.data?.data || response.data);
+      const created = normalizeReservation(
+        response.data?.data || response.data,
+      );
       return {
         ...created,
         restaurantId: res.restaurantId || created.restaurantId,
         restaurantName: res.restaurantName || created.restaurantName,
         restaurantCuisine: res.restaurantCuisine || created.restaurantCuisine,
-        restaurantImage: res.restaurantImage || created.restaurantImage || res.image || "",
+        restaurantImage:
+          res.restaurantImage || created.restaurantImage || res.image || "",
         customerName: res.customerName || created.customerName,
         customerEmail: res.customerEmail || created.customerEmail,
         customerPhone: res.customerPhone || created.customerPhone,
@@ -614,10 +656,7 @@ export const api = {
 
   cancelReservation: async (id) => {
     try {
-      await axios.delete(
-        `${API_URL}/reservations/${id}`,
-        getAuthConfig(),
-      );
+      await axios.delete(`${API_URL}/reservations/${id}`, getAuthConfig());
       return { id, status: "cancelled" };
     } catch (err) {
       console.error("Failed to cancel reservation via backend:", err);
@@ -639,35 +678,30 @@ export const api = {
   },
 
   // USER PROFILE
-getProfile: async () => {
-  try {
-    const response = await axios.get(
-      `${API_URL}/users`,
-      getAuthConfig()
-    );
+  getProfile: async () => {
+    try {
+      const response = await axios.get(`${API_URL}/users`, getAuthConfig());
 
-    return response.data.data;
-  } catch (error) {
-    console.error(error);
-    throw error;
-  }
-},
+      return response.data.data;
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  },
 
-updateProfile: async (profileData) => {
-  try {
+  updateProfile: async (profileData) => {
+    try {
       // Server expects PATCH for partial profile updates
       const response = await axios.patch(
         `${API_URL}/users`,
         profileData,
-        getAuthConfig()
+        getAuthConfig(),
       );
 
-    return response.data.data;
-  } catch (error) {
-    console.error(error);
-    throw error;
-  }
-},
-
-
+      return response.data.data;
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  },
 };
