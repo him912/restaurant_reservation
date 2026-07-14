@@ -448,6 +448,62 @@ export const api = {
     }
   },
 
+  addReviewResponse: async (reviewId, comment) => {
+    try {
+      const response = await axios.post(
+        `${API_URL}/reviews/${reviewId}/responses`,
+        { comment },
+        {
+          headers: {
+            ...getAuthHeaders(),
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      return normalizeReview(response.data?.data || response.data);
+    } catch (err) {
+      console.error("Failed to add review response:", err);
+      throw err;
+    }
+  },
+
+  updateReviewResponse: async (reviewId, responseId, comment) => {
+    try {
+      const response = await axios.put(
+        `${API_URL}/reviews/${reviewId}/responses/${responseId}`,
+        { comment },
+        {
+          headers: {
+            ...getAuthHeaders(),
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      return normalizeReview(response.data?.data || response.data);
+    } catch (err) {
+      console.error("Failed to update review response:", err);
+      throw err;
+    }
+  },
+
+  deleteReviewResponse: async (reviewId, responseId) => {
+    try {
+      const response = await axios.delete(
+        `${API_URL}/reviews/${reviewId}/responses/${responseId}`,
+        {
+          headers: {
+            ...getAuthHeaders(),
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      return response.data;
+    } catch (err) {
+      console.error("Failed to delete review response:", err);
+      throw err;
+    }
+  },
+
   updateReview: async (reviewId, review, files = []) => {
     try {
       const formData = new FormData();

@@ -1101,13 +1101,16 @@ export const OwnerDashboard = () => {
                 const previewImage = isEditing
                   ? editMenuFields.image || item.image
                   : item.image;
+                const itemContainerClass = isEditing
+                  ? "flex flex-col gap-4 p-4 border border-slate-200 rounded-[28px] shadow-sm bg-slate-50 items-start"
+                  : "flex flex-col lg:flex-row gap-4 p-4 border border-slate-200 rounded-[28px] shadow-sm bg-slate-50 items-start";
 
                 return (
                   <div
                     key={itemId}
-                    className="flex flex-col lg:flex-row gap-4 p-4 border border-slate-200 rounded-[28px] shadow-sm bg-slate-50"
+                    className={itemContainerClass}
                   >
-                    <div className="flex-shrink-0 w-full lg:w-44 h-32 rounded-3xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center">
+                    <div className="flex-shrink-0 w-full lg:w-34 h-32 rounded-3xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center">
                       {previewImage ? (
                         <img
                           src={previewImage}
@@ -1121,87 +1124,133 @@ export const OwnerDashboard = () => {
                       )}
                     </div>
 
-                    <div className="flex-1 min-w-0 grid gap-3">
+                    <div className="flex-2 min-w-0 grid gap-3">
                       {isEditing ? (
-                        <>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <input
-                              value={editMenuFields.name}
-                              onChange={(e) =>
-                                setEditMenuFields((s) => ({
-                                  ...s,
-                                  name: e.target.value,
-                                }))
-                              }
-                              className="w-full bg-white border border-slate-200 rounded-2xl px-3 py-2 text-sm"
-                              placeholder="Dish name"
-                            />
-                            <input
-                              value={editMenuFields.category}
-                              onChange={(e) =>
-                                setEditMenuFields((s) => ({
-                                  ...s,
-                                  category: e.target.value,
-                                }))
-                              }
-                              className="w-full bg-white border border-slate-200 rounded-2xl px-3 py-2 text-sm"
-                              placeholder="Category"
-                            />
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={editMenuFields.price}
-                              onChange={(e) =>
-                                setEditMenuFields((s) => ({
-                                  ...s,
-                                  price: e.target.value,
-                                }))
-                              }
-                              className="w-full bg-white border border-slate-200 rounded-2xl px-3 py-2 text-sm"
-                              placeholder="Price"
-                            />
-                            <input
-                              value={editMenuFields.image}
-                              onChange={(e) =>
-                                setEditMenuFields((s) => ({
-                                  ...s,
-                                  image: e.target.value,
-                                }))
-                              }
-                              className="w-full bg-white border border-slate-200 rounded-2xl px-3 py-2 text-sm"
-                              placeholder="Image URL"
-                            />
-                          </div>
-                          <textarea
-                            rows={4}
-                            value={editMenuFields.description}
-                            onChange={(e) =>
-                              setEditMenuFields((s) => ({
-                                ...s,
-                                description: e.target.value,
-                              }))
-                            }
-                            className="w-full min-h-[120px] resize-none bg-white border border-slate-200 rounded-2xl px-3 py-2 text-sm"
-                            placeholder="Description"
-                          />
-                          <label className="inline-flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={!!editMenuFields.available}
-                              onChange={(e) =>
-                                setEditMenuFields((s) => ({
-                                  ...s,
-                                  available: e.target.checked,
-                                }))
-                              }
-                              className="h-4 w-4 text-indigo-600 rounded"
-                            />
-                            Available
-                          </label>
-                        </>
-                      ) : (
+                        <form className="space-y-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
+                                Dish Name
+        </label>
+
+        <input
+          type="text"
+          value={editMenuFields.name}
+          onChange={(e) =>
+            setEditMenuFields((s) => ({
+              ...s,
+              name: e.target.value,
+            }))
+          }
+          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
+          Category
+        </label>
+
+        <input
+          type="text"
+          value={editMenuFields.category}
+          onChange={(e) =>
+            setEditMenuFields((s) => ({
+              ...s,
+              category: e.target.value,
+            }))
+          }
+          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+        />
+      </div>
+    </div>
+
+
+    <div>
+      <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
+        Description
+      </label>
+
+      <textarea
+        rows={3}
+        value={editMenuFields.description}
+        onChange={(e) =>
+          setEditMenuFields((s) => ({
+            ...s,
+            description: e.target.value,
+          }))
+        }
+        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all resize-none"
+      />
+    </div>
+
+
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div>
+        <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
+          Price
+        </label>
+
+        <input
+          type="number"
+          step="0.01"
+          value={editMenuFields.price}
+          onChange={(e) =>
+            setEditMenuFields((s) => ({
+              ...s,
+              price: e.target.value,
+            }))
+          }
+          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+        />
+      </div>
+
+
+      <div>
+        <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
+          Image URL
+        </label>
+
+        <input
+          type="text"
+          value={editMenuFields.image}
+          onChange={(e) =>
+            setEditMenuFields((s) => ({
+              ...s,
+              image: e.target.value,
+            }))
+          }
+          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+        />
+              </div>
+
+
+      <div className="flex flex-col justify-end">
+        <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
+          Available
+        </label>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={!!editMenuFields.available}
+            onChange={(e) =>
+              setEditMenuFields((s) => ({
+                ...s,
+                available: e.target.checked,
+              }))
+            }
+            className="h-4 w-4 text-indigo-600 border-slate-300 rounded"
+          />
+
+          <span className="text-xs font-semibold text-slate-600">
+            Available
+          </span>
+        </div>
+      </div>
+    </div>
+  </form>
+) :  (
                         <>
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
@@ -1230,8 +1279,10 @@ export const OwnerDashboard = () => {
                       )}
                     </div>
 
-                    <div className="flex-shrink-0 min-w-[12rem] flex flex-col justify-between gap-3 text-right">
-                      {isEditing ? (
+                    <div className={`w-full lg:w-auto flex flex-col sm:flex-row justify-end gap-2 ${
+    !isEditing ? "px-4" : ""
+  }`}>
+                        {isEditing ? (
                         <div className="flex flex-wrap justify-end gap-2">
                           <button
                             type="button"
@@ -1262,48 +1313,51 @@ export const OwnerDashboard = () => {
                           <button
                             type="button"
                             onClick={() => setEditingMenuItemId(null)}
-                            className="px-4 py-2 bg-slate-100 text-slate-700 rounded-2xl text-xs font-semibold"
+                            className="w-full sm:w-auto px-4 py-2 bg-slate-100 text-slate-700 rounded-2xl text-xs font-semibold"
                           >
                             Cancel
                           </button>
                         </div>
                       ) : (
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingMenuItemId(String(itemId));
-                              setEditMenuFields({
-                                name: item.name || "",
-                                description: item.description || "",
-                                category: item.category || "",
-                                price: item.price || "",
-                                image: item.image || "",
-                                available: item.available ?? true,
-                              });
-                            }}
-                            className="px-4 py-2 bg-amber-500 text-white rounded-2xl text-xs font-bold"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (!confirm("Delete this menu item?")) return;
-                              try {
-                                await deleteMenuItem(
-                                  restaurant.id || restaurant._id,
-                                  itemId,
-                                );
-                              } catch (err) {
-                                console.error(err);
-                              }
-                            }}
-                            className="px-4 py-2 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl text-xs font-semibold"
-                          >
-                            Delete
-                          </button>
-                        </div>
+                        <div className="flex flex-col justify-end gap-2 pt-2 sm:pt-0">
+  <button
+    type="button"
+    onClick={() => {
+      setEditingMenuItemId(String(itemId));
+      setEditMenuFields({
+        name: item.name || "",
+        description: item.description || "",
+        category: item.category || "",
+        price: item.price || "",
+        image: item.image || "",
+        available: item.available ?? true,
+      });
+    }}
+        className="w-full sm:w-auto px-4 py-2 bg-amber-500 border border-rose-100 text-white rounded-2xl text-xs font-semibold"
+
+  >
+    Edit
+  </button>
+
+  <button
+    type="button"
+    onClick={async () => {
+      if (!confirm("Delete this menu item?")) return;
+
+      try {
+        await deleteMenuItem(
+          restaurant.id || restaurant._id,
+          itemId,
+        );
+      } catch (err) {
+        console.error(err);
+      }
+    }}
+    className="w-full sm:w-auto px-4 py-2 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl text-xs font-semibold"
+  >
+    Delete
+  </button>
+</div>
                       )}
                     </div>
                   </div>

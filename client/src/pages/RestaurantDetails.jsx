@@ -54,6 +54,9 @@ export const RestaurantDetails = () => {
   const [reviewFiles, setReviewFiles] = useState([]);
   const [editingReviewId, setEditingReviewId] = useState(null);
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [responseDrafts, setResponseDrafts] = useState({});
+  const [editingResponse, setEditingResponse] = useState(null);
+  const [submittingResponse, setSubmittingResponse] = useState(false);
 
   // Fetch individual restaurant details
   useEffect(() => {
@@ -224,6 +227,66 @@ export const RestaurantDetails = () => {
       currentUser.id === review.userId?.id ||
       currentUser.id === review.userId
     );
+  };
+
+  const isRestaurantOwner = Boolean(
+    currentUser &&
+      (currentUser.role === 'restaurant_owner' ||
+        currentUser.role === 'owner' ||
+        currentUser.role?.includes('owner')),
+  );
+
+  const handleResponseDraftChange = (reviewId, value) => {
+    setResponseDrafts((prev) => ({ ...prev, [reviewId]: value }));
+  };
+
+  const handleReviewResponseSubmit = async (reviewId) => {
+    const comment = (responseDrafts[reviewId] || '').trim();
+    if (!comment) {
+      showToast('Please enter a reply before submitting.', 'error');
+      return;
+    }
+
+    try {
+      setSubmittingResponse(true);
+      if (editingResponse?.reviewId === reviewId) {
+        await api.updateReviewResponse(reviewId, editingResponse.responseId, comment);
+        showToast('Reply updated successfully.', 'success');
+      } else {
+        await api.addReviewResponse(reviewId, comment);
+        showToast('Reply published successfully.', 'success');
+      }
+
+      const refreshedReviews = await api.getReviewsByRestaurantId(restaurant.id);
+      setReviews(refreshedReviews);
+      setResponseDrafts((prev) => ({ ...prev, [reviewId]: '' }));
+      setEditingResponse(null);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to save review reply.', 'error');
+    } finally {
+      setSubmittingResponse(false);
+    }
+  };
+
+  const handleReviewResponseEdit = (review, response) => {
+    setEditingResponse({ reviewId: review.id, responseId: response._id || response.id });
+    setResponseDrafts((prev) => ({ ...prev, [review.id]: response.comment || '' }));
+  };
+
+  const handleReviewResponseDelete = async (reviewId, responseId) => {
+    if (!window.confirm('Delete this owner reply?')) return;
+
+    try {
+      await api.deleteReviewResponse(reviewId, responseId);
+      const refreshedReviews = await api.getReviewsByRestaurantId(restaurant.id);
+      setReviews(refreshedReviews);
+      setEditingResponse((current) => (current?.responseId === responseId ? null : current));
+      showToast('Reply removed.', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to remove reply.', 'error');
+    }
   };
 
   // Handle Review submission
@@ -669,6 +732,79 @@ export const RestaurantDetails = () => {
                               className="h-24 w-full rounded-xl object-cover border border-zinc-200"
                             />
                           ))}
+                        </div>
+                      )}
+
+                      {Array.isArray(rev.responses) && rev.responses.length > 0 && (
+                        <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3 space-y-2">
+                          <div className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-emerald-700">
+                            Owner response
+                          </div>
+                          {rev.responses.map((response) => (
+                            <div key={response._id || response.id} className="rounded-xl border border-emerald-200 bg-white/80 p-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                                  {response.userId?.username || 'Restaurant owner'}
+                                </span>
+                                {isRestaurantOwner && (
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleReviewResponseEdit(rev, response)}
+                                      className="text-[10px] font-bold uppercase tracking-wide text-indigo-600"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleReviewResponseDelete(rev.id, response._id || response.id)}
+                                      className="text-[10px] font-bold uppercase tracking-wide text-rose-600"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              <p className="mt-2 text-xs leading-relaxed text-zinc-700">{response.comment}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {isRestaurantOwner && (
+                        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                          <label className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-500 mb-2">
+                            {editingResponse?.reviewId === rev.id ? 'Edit your reply' : 'Reply to this review'}
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={responseDrafts[rev.id] || ''}
+                            onChange={(e) => handleResponseDraftChange(rev.id, e.target.value)}
+                            placeholder="Thank guests for their feedback and share any next steps..."
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500"
+                          />
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleReviewResponseSubmit(rev.id)}
+                              disabled={submittingResponse}
+                              className="px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-extrabold uppercase tracking-wider hover:bg-emerald-700 transition disabled:opacity-50"
+                            >
+                              {editingResponse?.reviewId === rev.id ? 'Update reply' : 'Publish reply'}
+                            </button>
+                            {editingResponse?.reviewId === rev.id && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingResponse(null);
+                                  setResponseDrafts((prev) => ({ ...prev, [rev.id]: '' }));
+                                }}
+                                className="px-3.5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-extrabold uppercase tracking-wider"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
