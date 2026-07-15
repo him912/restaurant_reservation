@@ -248,10 +248,17 @@ exports.deleteReview = async (req, res) => {
     }
 
     if (review.userId.toString() !== userId) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to delete this review",
-      });
+      // Allow restaurant owner to delete reviews for their restaurant, or admins
+      const restaurant = await Restaurant.findById(review.restaurantId);
+      const isRestaurantOwner = restaurant && restaurant.ownerId && restaurant.ownerId.toString() === userId;
+      const isAdmin = req.user?.role === "admin";
+
+      if (!isRestaurantOwner && !isAdmin) {
+        return res.status(403).json({
+          success: false,
+          message: "Not authorized to delete this review",
+        });
+      }
     }
 
     const restaurantId = review.restaurantId;
