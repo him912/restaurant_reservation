@@ -107,7 +107,7 @@ export const Navbar = () => {
                   <Calendar size={14} />
                   <span>My Reservations</span>
                 </Link>
-              ) : (
+              ) : currentUser.role === "restaurant_owner" ? (
                 <Link
                   to="/owner-dashboard"
                   className={`text-sm font-semibold transition-all py-1.5 px-3 rounded-xl flex items-center gap-1.5 ${
@@ -128,7 +128,23 @@ export const Navbar = () => {
                     </span>
                   )}
                 </Link>
-              )
+              ) : currentUser.role === "admin" ? (
+                <Link
+                  to="/admin-panel"
+                  className={`text-sm font-semibold transition-all py-1.5 px-3 rounded-xl flex items-center gap-1.5 ${
+                    isActive("/admin-panel")
+                      ? "text-amber-600 bg-amber-50/80 border border-amber-200"
+                      : "text-slate-600 hover:text-amber-600 hover:bg-slate-50"
+                  }`}
+                  id="nav-link-admin"
+                >
+                  <Award
+                    size={14}
+                    className="text-amber-600 animate-pulse"
+                  />
+                  <span>Admin Control</span>
+                </Link>
+              ) : null
             ) : (
               <button
                 onClick={() => openAuthModal("login")}
@@ -163,7 +179,11 @@ export const Navbar = () => {
                   {currentUser
                     ? currentUser.role === "user"
                       ? "Customer"
-                      : "Owner"
+                      : currentUser.role === "restaurant_owner"
+                      ? "Owner"
+                      : currentUser.role === "admin"
+                      ? "Admin"
+                      : "Guest"
                     : "None"}
                 </span>
               </button>
@@ -236,7 +256,11 @@ export const Navbar = () => {
                 {currentUser
                   ? currentUser.role === "customer"
                     ? "Customer"
-                    : "Owner"
+                    : currentUser.role === "restaurant_owner"
+                    ? "Owner"
+                    : currentUser.role === "admin"
+                    ? "Admin"
+                    : "Guest"
                   : "None"}
               </span>
             </button>
@@ -293,7 +317,7 @@ export const Navbar = () => {
                     <Calendar size={16} />
                     <span>My Reservations</span>
                   </Link>
-                ) : (
+                ) : currentUser.role === "restaurant_owner" ? (
                   <Link
                     to="/owner-dashboard"
                     onClick={() => setIsOpen(false)}
@@ -312,7 +336,21 @@ export const Navbar = () => {
                       </span>
                     )}
                   </Link>
-                )
+                ) : currentUser.role === "admin" ? (
+                  <Link
+                    to="/admin-panel"
+                    onClick={() => setIsOpen(false)}
+                    className={`block px-3 py-2.5 rounded-xl text-base font-semibold flex items-center gap-1.5 ${
+                      isActive("/admin-panel")
+                        ? "text-amber-600 bg-amber-50 border border-amber-200"
+                        : "text-slate-655 hover:bg-slate-50"
+                    }`}
+                    id="mobile-link-admin"
+                  >
+                    <Award size={16} className="text-amber-600" />
+                    <span>Admin Panel</span>
+                  </Link>
+                ) : null
               ) : (
                 <button
                   onClick={() => {

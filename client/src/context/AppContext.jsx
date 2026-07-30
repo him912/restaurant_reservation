@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { api } from "../api";
 
@@ -18,6 +18,7 @@ const normalizeRole = (r) => {
     owner: "restaurant_owner",
     restaurant_owner: "restaurant_owner",
     user: "user",
+    admin: "admin",
   };
   return map[r] || r;
 };
@@ -69,6 +70,12 @@ export const AppProvider = ({ children }) => {
         password: "password",
         role: "owner",
       },
+      {
+        name: "Admin User",
+        email: "admin@dineflow.com",
+        password: "password",
+        role: "admin",
+      },
     ];
   });
 
@@ -78,6 +85,7 @@ export const AppProvider = ({ children }) => {
   const [authModalTab, setAuthModalTab] = useState("login");
   const [restaurants, setRestaurants] = useState([]);
   const [reservations, setReservations] = useState([]);
+  const [adminReservations, setAdminReservations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState({ message: "", type: null });
 
@@ -139,6 +147,14 @@ export const AppProvider = ({ children }) => {
         "Swapped to Restaurant Owner Mode (Managing Sakura Omakase)",
         "info",
       );
+    } else if (role === "admin") {
+      const adminUser = registeredUsers.find((u) => u.role === "admin") || {
+        name: "Admin User",
+        email: "admin@dineflow.com",
+        role: "admin",
+      };
+      setCurrentUser(adminUser);
+      showToast("Swapped to Admin Mode", "info");
     } else {
       const customerUser = registeredUsers.find((u) => u.role === "user") || {
         name: "Marcus Sterling",
@@ -305,6 +321,46 @@ export const AppProvider = ({ children }) => {
     setRestaurants(list);
   };
 
+  const fetchAdminRestaurantsByStatus = useCallback(async (status = null) => {
+    try {
+      const list = await api.getAdminRestaurants(status);
+      setRestaurants(list);
+      return list;
+    } catch (err) {
+      console.error("Failed to fetch admin restaurants:", err);
+      showToast("Failed to fetch restaurants.", "error");
+      throw err;
+    }
+  }, []);
+
+  const fetchAdminReservations = useCallback(async (status = null) => {
+    try {
+      const list = await api.getAdminReservations(status);
+      setAdminReservations(list);
+      return list;
+    } catch (err) {
+      console.error("Failed to fetch admin reservations:", err);
+      showToast("Failed to fetch reservations.", "error");
+      throw err;
+    }
+  }, []);
+
+  const updateAdminReservationStatus = async (id, status) => {
+    try {
+      const updated = await api.updateAdminReservationStatus(id, status);
+      setAdminReservations((prev) =>
+        prev.map((r) => (r.id === id ? updated : r)),
+      );
+      showToast(`Reservation ${status === "confirmed" ? "accepted" : "rejected"}.`, "success");
+      return updated;
+    } catch (err) {
+      const message =
+        err.response?.data?.message || "Failed to update reservation status.";
+      showToast(message, "error");
+      throw err;
+    }
+  };
+
   const refreshReservations = async () => {
     const list = await api.getReservations();
     setReservations(list);
@@ -314,7 +370,7 @@ export const AppProvider = ({ children }) => {
     try {
       const created = await api.createReservation(res);
       setReservations((prev) => [created, ...prev]);
-      showToast("Reservation confirmed successfully!", "success");
+      showToast("Reservation submitted — awaiting approval", "success");
       return created;
     } catch (err) {
       showToast(err.message || "Failed to make reservation", "error");
@@ -422,6 +478,7 @@ export const AppProvider = ({ children }) => {
       throw err;
     }
   };
+  
   const updateMenuItem = async (restaurantId, itemId, updates) => {
     try {
       const updatedRestaurant = await api.updateMenuItem(
@@ -503,6 +560,43 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const toggleRestaurantVisibility = async (restaurantId) => {
+    try {
+      const updated = await api.toggleRestaurantStatus(restaurantId);
+      setRestaurants((prev) =>
+        prev.map((r) =>
+          r.id === restaurantId || r._id === restaurantId
+            ? { ...r, isActive: updated.isActive }
+            : r,
+        ),
+      );
+      const status = updated.isActive ? "activated" : "deactivated";
+      showToast(`Restaurant ${status} successfully.`, "success");
+      return updated;
+    } catch (err) {
+      showToast("Failed to toggle restaurant status.", "error");
+      throw err;
+    }
+  };
+
+  const clearRestaurantReport = async (restaurantId) => {
+    try {
+      const updated = await api.removeRestaurantReport(restaurantId);
+      setRestaurants((prev) =>
+        prev.map((r) =>
+          r.id === restaurantId || r._id === restaurantId
+            ? { ...r, reported: updated.reported || false }
+            : r,
+        ),
+      );
+      showToast("Report cleared successfully.", "success");
+      return updated;
+    } catch (err) {
+      showToast("Failed to clear restaurant report.", "error");
+      throw err;
+    }
+  };
+
   const fetchProfile = async () => {
     try {
       const data = await api.getProfile();
@@ -532,6 +626,7 @@ export const AppProvider = ({ children }) => {
         switchUserRole,
         restaurants,
         reservations,
+        adminReservations,
         isLoading,
         setIsProfileModalOpen,
         isProfileModalOpen,
@@ -541,6 +636,9 @@ export const AppProvider = ({ children }) => {
         fetchProfile,
         updateUserProfile,
         refreshRestaurants,
+        fetchAdminRestaurantsByStatus,
+        fetchAdminReservations,
+        updateAdminReservationStatus,
         refreshReservations,
         addNewReservation,
         cancelUserReservation,
@@ -550,6 +648,8 @@ export const AppProvider = ({ children }) => {
         createRestaurant,
         updateRestaurantProfile,
         deleteRestaurant,
+        toggleRestaurantVisibility,
+        clearRestaurantReport,
         uploadRestaurantGallery,
         addMenuItem,
         toast,

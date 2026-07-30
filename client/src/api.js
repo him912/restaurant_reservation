@@ -120,6 +120,7 @@ const normalizeReservation = (reservation) => {
 
 const mapStatusToApi = (status) => {
   if (status === "confirmed") return "reserved";
+  if (status === "pending") return "pending";
   return status;
 };
 
@@ -185,6 +186,24 @@ export const api = {
       return Array.isArray(data) ? data : [];
     } catch (err) {
       console.error("Failed to fetch restaurants from backend:", err);
+      await delay(350);
+      const data = localStorage.getItem("restaurant_platform_restaurants");
+      return data ? JSON.parse(data) : [];
+    }
+  },
+
+  getAdminRestaurants: async (status = null) => {
+    try {
+      let url = `${API_URL}/admin/restaurants`;
+      if (status) {
+        url += `?status=${status}`;
+      }
+      const response = await axios.get(url, getAuthConfig());
+      console.log("Fetched admin restaurants from backend:", response.data);
+      const data = response.data?.data || response.data || [];
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error("Failed to fetch admin restaurants from backend:", err);
       await delay(350);
       const data = localStorage.getItem("restaurant_platform_restaurants");
       return data ? JSON.parse(data) : [];
@@ -320,6 +339,60 @@ export const api = {
         JSON.stringify(current),
       );
       return { id: restaurantId };
+    }
+  },
+
+  toggleRestaurantStatus: async (restaurantId) => {
+    try {
+      const response = await axios.put(
+        `${API_URL}/admin/restaurants/${restaurantId}/status`,
+        {},
+        getAuthConfig(),
+      );
+      return response.data?.data || response.data;
+    } catch (err) {
+      console.error("Failed to toggle restaurant status:", err);
+      await delay(300);
+      const data = localStorage.getItem("restaurant_platform_restaurants");
+      if (!data) throw err;
+      const list = JSON.parse(data);
+      const idx = list.findIndex((r) => r.id === restaurantId || r._id === restaurantId);
+      if (idx !== -1) {
+        list[idx].isActive = !list[idx].isActive;
+        localStorage.setItem(
+          "restaurant_platform_restaurants",
+          JSON.stringify(list),
+        );
+        return list[idx];
+      }
+      throw err;
+    }
+  },
+
+  removeRestaurantReport: async (restaurantId) => {
+    try {
+      const response = await axios.put(
+        `${API_URL}/admin/restaurants/${restaurantId}/clear-report`,
+        {},
+        getAuthConfig(),
+      );
+      return response.data?.data || response.data;
+    } catch (err) {
+      console.error("Failed to remove restaurant report:", err);
+      await delay(300);
+      const data = localStorage.getItem("restaurant_platform_restaurants");
+      if (!data) throw err;
+      const list = JSON.parse(data);
+      const idx = list.findIndex((r) => r.id === restaurantId || r._id === restaurantId);
+      if (idx !== -1) {
+        list[idx].reported = false;
+        localStorage.setItem(
+          "restaurant_platform_restaurants",
+          JSON.stringify(list),
+        );
+        return list[idx];
+      }
+      throw err;
     }
   },
 
@@ -627,7 +700,7 @@ export const api = {
         guests: res.guests ?? res.partySize ?? 1,
         restaurantImage: res.restaurantImage || res.image || "",
         id: `res-${Math.floor(1000 + Math.random() * 9000)}`,
-        status: "confirmed",
+        status: "pending",
         createdAt: new Date().toISOString(),
         tableNumber: Math.floor(1 + Math.random() * 20),
       };
@@ -730,6 +803,40 @@ export const api = {
         return list[idx];
       }
       return { id, status: "cancelled" };
+    }
+  },
+
+  getAdminReservations: async (status = null) => {
+    try {
+      let url = `${API_URL}/admin/reservations`;
+      if (status) {
+        const apiStatus = mapStatusToApi(status);
+        url += `?status=${apiStatus}`;
+      }
+      const response = await axios.get(url, getAuthConfig());
+      const reservations = response.data?.data || [];
+      return Array.isArray(reservations)
+        ? reservations.map(normalizeReservation)
+        : [];
+    } catch (err) {
+      console.error("Failed to fetch admin reservations:", err);
+      throw err;
+    }
+  },
+
+  updateAdminReservationStatus: async (id, status) => {
+    const apiStatus = mapStatusToApi(status);
+
+    try {
+      const response = await axios.put(
+        `${API_URL}/admin/reservations/${id}/status`,
+        { status: apiStatus },
+        getAuthConfig(),
+      );
+      return normalizeReservation(response.data?.data || response.data);
+    } catch (err) {
+      console.error("Failed to update admin reservation status:", err);
+      throw err;
     }
   },
 

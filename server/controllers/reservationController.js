@@ -77,6 +77,7 @@ exports.createReservation = async (req, res) => {
       date: reservationDate,
       time,
       partySize,
+      status: "pending",
     });
 
     // Broadcast availability update to all subscribed clients
@@ -86,7 +87,7 @@ exports.createReservation = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Reservation created successfully",
+      message: "Reservation submitted successfully",
       data: reservation,
     });
   } catch (error) {
@@ -100,7 +101,10 @@ exports.createReservation = async (req, res) => {
 exports.getMyReservations = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const reservations = await Reservation.find({ userId, status: "reserved" })
+    const reservations = await Reservation.find({
+      userId,
+      status: { $in: ["pending", "reserved"] },
+    })
       .populate("restaurantId", "name city address capacity image")
       .sort({ date: -1, time: 1 });
 
@@ -159,7 +163,7 @@ exports.updateReservation = async (req, res) => {
     }
 
     const status = req.body.status;
-    if (status && !["reserved", "cancelled"].includes(status)) {
+    if (status && !["pending", "reserved", "cancelled"].includes(status)) {
       return res.status(400).json({
         success: false,
         message: "Invalid status value",
@@ -174,15 +178,19 @@ exports.updateReservation = async (req, res) => {
       });
     }
 
-    if (status !== "cancelled") {
-      const reservedSeats = await getReservedSeats(
+    const effectiveStatus = status || reservation.status;
+    if (effectiveStatus === "reserved") {
+      let reservedSeats = await getReservedSeats(
         updatedRestaurantId,
         updatedDate,
         updatedTime,
       );
 
-      const seatsAfterUpdate = reservedSeats - reservation.partySize + Number(updatedPartySize);
-      if (seatsAfterUpdate > restaurant.capacity) {
+      if (reservation.status === "reserved") {
+        reservedSeats -= reservation.partySize;
+      }
+
+      if (reservedSeats + Number(updatedPartySize) > restaurant.capacity) {
         return res.status(400).json({
           success: false,
           message: "Not enough seats available for the requested time",

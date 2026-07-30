@@ -2,6 +2,21 @@ const Restaurant = require("../models/Restaurant");
 const Reservation = require("../models/Reservation");
 const Review = require("../models/Review");
 const User = require("../models/User");
+const { broadcastAvailabilityUpdate } = require("../sockets/availabilitySocket");
+
+const getReservedSeats = async (restaurantId, date, time) => {
+  const filter = {
+    restaurantId,
+    date,
+    status: "reserved",
+  };
+  if (time) {
+    filter.time = time;
+  }
+
+  const reservations = await Reservation.find(filter);
+  return reservations.reduce((sum, reservation) => sum + reservation.partySize, 0);
+};
 
 // ================= ADMIN DASHBOARD =================
 exports.getDashboardStats = async (req, res) => {
@@ -213,10 +228,19 @@ exports.getAllReservationsAdmin = async (req, res) => {
   }
 };
 
-// ================= CANCEL RESERVATION (ADMIN) =================
-exports.cancelReservationAdmin = async (req, res) => {
+// ================= UPDATE RESERVATION STATUS (ADMIN) =================
+exports.updateReservationStatusAdmin = async (req, res) => {
   try {
     const { id } = req.params;
+    const { status } = req.body;
+    const io = req.app.get("io");
+
+    if (!["reserved", "cancelled"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "status must be reserved or cancelled",
+      });
+    }
 
     const reservation = await Reservation.findById(id);
     if (!reservation) {
@@ -226,14 +250,63 @@ exports.cancelReservationAdmin = async (req, res) => {
       });
     }
 
-    reservation.status = "cancelled";
+    if (status === "reserved") {
+      const restaurant = await Restaurant.findById(reservation.restaurantId);
+      if (!restaurant || !restaurant.isActive) {
+        return res.status(404).json({
+          success: false,
+          message: "Restaurant not found or inactive",
+        });
+      }
+
+      let reservedSeats = await getReservedSeats(
+        reservation.restaurantId,
+        reservation.date,
+        reservation.time,
+      );
+
+      if (reservation.status === "reserved") {
+        reservedSeats -= reservation.partySize;
+      }
+
+      if (reservedSeats + reservation.partySize > restaurant.capacity) {
+        return res.status(400).json({
+          success: false,
+          message: "Not enough seats available for the requested time",
+        });
+      }
+    }
+
+    reservation.status = status;
     await reservation.save();
+
+    if (io) {
+      const date = reservation.date.toISOString().split("T")[0];
+      broadcastAvailabilityUpdate(io, reservation.restaurantId.toString(), date);
+    }
+
+    const updated = await Reservation.findById(id)
+      .populate("restaurantId", "name")
+      .populate("userId", "username email");
 
     res.status(200).json({
       success: true,
-      message: "Reservation cancelled",
-      data: reservation,
+      message: `Reservation ${status === "reserved" ? "accepted" : "rejected"}`,
+      data: updated,
     });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= CANCEL RESERVATION (ADMIN) =================
+exports.cancelReservationAdmin = async (req, res) => {
+  try {
+    req.body = { status: "cancelled" };
+    return exports.updateReservationStatusAdmin(req, res);
   } catch (error) {
     res.status(500).json({
       success: false,

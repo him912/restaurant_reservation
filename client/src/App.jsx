@@ -13,6 +13,7 @@ import { Home } from "./pages/Home";
 import { RestaurantDetails } from "./pages/RestaurantDetails";
 import { CustomerDashboard } from "./pages/CustomerDashboard";
 import { OwnerDashboard } from "./pages/OwnerDashboard";
+import { AdminPanel } from "./pages/AdminPanel";
 import ProfileModal from "./components/ProfileModel";
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="/restaurant/:id" element={<RestaurantDetails />} />
               <Route path="/dashboard" element={<CustomerDashboard />} />
               <Route path="/owner-dashboard" element={<OwnerDashboard />} />
+              <Route path="/admin-panel" element={<AdminPanel />} />
             </Routes>
           </div>
 

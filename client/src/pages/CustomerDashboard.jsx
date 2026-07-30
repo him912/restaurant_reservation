@@ -262,10 +262,12 @@ export const CustomerDashboard = () => {
                             className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-wide border ${
                               res.status === 'confirmed'
                                 ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
-                                : 'bg-indigo-50 text-indigo-750 border-indigo-100'
+                                : res.status === 'cancelled'
+                                  ? 'bg-slate-100 text-slate-500 border-slate-200'
+                                  : 'bg-amber-50 text-amber-800 border-amber-100'
                             }`}
                           >
-                            {res.status}
+                            {res.status === 'pending' ? 'awaiting approval' : res.status}
                           </span>
 
                           <div className="flex flex-col gap-2 items-end">
@@ -343,10 +345,12 @@ export const CustomerDashboard = () => {
                           className={`px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide border ${
                             res.status === 'cancelled'
                               ? 'bg-slate-100 text-slate-500 border-slate-200'
-                              : 'bg-indigo-50/50 text-indigo-750 border-indigo-100'
+                              : res.status === 'confirmed'
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                                : 'bg-amber-50 text-amber-800 border-amber-100'
                           }`}
                         >
-                          {res.status}
+                          {res.status === 'pending' ? 'awaiting approval' : res.status}
                         </span>
                       </div>
                     </div>

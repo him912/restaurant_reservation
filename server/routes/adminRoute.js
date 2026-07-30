@@ -9,6 +9,7 @@ const {
   deleteReviewAdmin,
   getAllReservationsAdmin,
   cancelReservationAdmin,
+  updateReservationStatusAdmin,
   getAllUsersAdmin,
   updateUserRole,
   getRestaurantStats,
@@ -35,6 +36,12 @@ router.delete("/reviews/:id", protect, adminOnly, deleteReviewAdmin);
 
 // Reservation management
 router.get("/reservations", protect, adminOnly, getAllReservationsAdmin);
+router.put(
+  "/reservations/:id/status",
+  protect,
+  adminOnly,
+  updateReservationStatusAdmin,
+);
 router.put("/reservations/:id/cancel", protect, adminOnly, cancelReservationAdmin);
 
 // User management
