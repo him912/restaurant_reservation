@@ -11,39 +11,43 @@ dotenv.config();
 connectDB();
 
 const app = express();
-app.use(cors());
 app.use(express.json());
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "http://localhost:3000",
+  "https://restaurant-reservation-sandy-three.vercel.app",
+  "https://sweet-centaur-8df9e0.netlify.app",
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow non-browser / same-origin requests (no Origin header)
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    // Allow any vercel.app / netlify.app preview deploy
+    if (
+      /\.vercel\.app$/.test(origin) ||
+      /\.netlify\.app$/.test(origin)
+    ) {
+      return callback(null, true);
+    }
+    return callback(null, true); // keep permissive for API clients
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "http://localhost:5175",
-      "http://localhost:3000",
-      "https://restaurant-reservation-sandy-three.vercel.app/",
-      "https://sweet-centaur-8df9e0.netlify.app",
-    ],
-    credentials: true,
-  },
+  cors: corsOptions,
 });
-
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "http://localhost:5175",
-      "http://localhost:3000",
-      "https://restaurant-reservation-sandy-three.vercel.app/",
-      "https://sweet-centaur-8df9e0.netlify.app",
-    ],
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
-);
 
 // Attach io to app for use in controllers
 app.set("io", io);

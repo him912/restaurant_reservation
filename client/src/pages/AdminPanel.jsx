@@ -28,6 +28,7 @@ export const AdminPanel = () => {
   const {
     restaurants,
     adminReservations,
+    currentUser,
     toggleRestaurantVisibility,
     clearRestaurantReport,
     deleteRestaurant,
@@ -37,6 +38,7 @@ export const AdminPanel = () => {
     updateAdminReservationStatus,
     createRestaurant,
     uploadRestaurantGallery,
+    openAuthModal,
   } = useApp();
   const [activeTab, setActiveTab] = useState("restaurants");
   const [sortBy, setSortBy] = useState("name");
@@ -64,9 +66,13 @@ export const AdminPanel = () => {
   const [newRestaurantFeatures, setNewRestaurantFeatures] = useState([]);
   const [newRestaurantGalleryFiles, setNewRestaurantGalleryFiles] = useState([]);
 
+  const isAdminAuthenticated =
+    Boolean(localStorage.getItem("dineflow_token")) &&
+    currentUser?.role === "admin";
+
   // Fetch restaurants when filter changes
   useEffect(() => {
-    if (activeTab !== "restaurants") return;
+    if (activeTab !== "restaurants" || !isAdminAuthenticated) return;
 
     const loadRestaurantsByStatus = async () => {
       try {
@@ -82,11 +88,11 @@ export const AdminPanel = () => {
       }
     };
     loadRestaurantsByStatus();
-  }, [filterStatus, fetchAdminRestaurantsByStatus, activeTab]);
+  }, [filterStatus, fetchAdminRestaurantsByStatus, activeTab, isAdminAuthenticated]);
 
   // Fetch reservations when tab or filter changes
   useEffect(() => {
-    if (activeTab !== "reservations") return;
+    if (activeTab !== "reservations" || !isAdminAuthenticated) return;
 
     const loadReservations = async () => {
       try {
@@ -102,6 +108,7 @@ export const AdminPanel = () => {
     activeTab,
     reservationFilterStatus,
     fetchAdminReservations,
+    isAdminAuthenticated,
   ]);
 
   // Filter and sort restaurants
@@ -322,6 +329,30 @@ export const AdminPanel = () => {
   return (
     <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 min-h-screen py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {!isAdminAuthenticated ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center backdrop-blur-sm"
+          >
+            <div className="w-16 h-16 bg-amber-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Activity className="text-amber-400" size={32} />
+            </div>
+            <h1 className="text-2xl font-black text-white mb-2">
+              Admin login required
+            </h1>
+            <p className="text-slate-400 mb-6 max-w-md mx-auto">
+              Sign in with an admin account to manage restaurants and accept or reject reservations.
+            </p>
+            <button
+              onClick={() => openAuthModal("login")}
+              className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl font-bold transition-all shadow-lg"
+            >
+              Log in as Admin
+            </button>
+          </motion.div>
+        ) : (
+          <>
         {/* Header Section */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -1179,6 +1210,8 @@ export const AdminPanel = () => {
               </form>
             </motion.div>
           </motion.div>
+        )}
+          </>
         )}
       </div>
     </div>

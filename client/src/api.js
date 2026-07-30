@@ -78,14 +78,14 @@ const normalizeReservation = (reservation) => {
   const fallbackCustomerName =
     reservation.customerName ||
     reservation.customerFullName ||
-    storedCurrentUser?.name ||
     reservation.userId?.username ||
     reservation.userId?.name ||
+    storedCurrentUser?.name ||
     "";
   const fallbackCustomerEmail =
     reservation.customerEmail ||
-    storedCurrentUser?.email ||
     reservation.userId?.email ||
+    storedCurrentUser?.email ||
     "";
 
   return {
@@ -807,12 +807,21 @@ export const api = {
   },
 
   getAdminReservations: async (status = null) => {
+    const token = localStorage.getItem("dineflow_token");
+    if (!token) {
+      const err = new Error("No token provided");
+      err.response = { status: 401, data: { message: "No token provided" } };
+      throw err;
+    }
+
     try {
       let url = `${API_URL}/admin/reservations`;
       if (status) {
         const apiStatus = mapStatusToApi(status);
         url += `?status=${apiStatus}`;
       }
+      // Use a higher limit so admin sees more than the default page size of 20
+      url += `${url.includes("?") ? "&" : "?"}limit=100`;
       const response = await axios.get(url, getAuthConfig());
       const reservations = response.data?.data || [];
       return Array.isArray(reservations)
@@ -825,6 +834,13 @@ export const api = {
   },
 
   updateAdminReservationStatus: async (id, status) => {
+    const token = localStorage.getItem("dineflow_token");
+    if (!token) {
+      const err = new Error("No token provided");
+      err.response = { status: 401, data: { message: "No token provided" } };
+      throw err;
+    }
+
     const apiStatus = mapStatusToApi(status);
 
     try {

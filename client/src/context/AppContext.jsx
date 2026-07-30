@@ -234,13 +234,14 @@ export const AppProvider = ({ children }) => {
     }
 
     try {
+      const apiRole = normalizeRole(role);
       const response = await axios.post(
         `${API_URL}/auth/register`,
         {
           username: name.trim(),
           email: email.toLowerCase().trim(),
           password,
-          role,
+          role: apiRole,
         },
         { headers: { "Content-Type": "application/json" } },
       );
@@ -253,22 +254,9 @@ export const AppProvider = ({ children }) => {
         return false;
       }
 
-      const payload = result.data || {};
-      const userEmail = payload.email || email.toLowerCase().trim();
-      const userRole = payload.role || role || "customer";
-      const userName =
-        payload.username ||
-        payload.name ||
-        name.trim() ||
-        deriveNameFromEmail(userEmail);
-      setCurrentUser({ name: userName, email: userEmail, role: userRole });
-      showToast(
-        result.message ||
-          `Account successfully registered! Welcome, ${userName}.`,
-        "success",
-      );
-      setIsAuthModalOpen(false);
-      return true;
+      // Register does not return a JWT — log in immediately so protected routes work
+      const loggedIn = await login(email, password);
+      return loggedIn;
     } catch (err) {
       const message =
         err?.response?.data?.message ||
@@ -333,6 +321,24 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
+  const handleAuthFailure = (err) => {
+    const status = err?.response?.status;
+    if (status === 401) {
+      localStorage.removeItem("dineflow_token");
+      setCurrentUser(null);
+      setAdminReservations([]);
+      showToast("Session expired. Please log in again as admin.", "error");
+      openAuthModal("login");
+      return true;
+    }
+    if (status === 403) {
+      showToast("Admin privileges required. Log in with an admin account.", "error");
+      openAuthModal("login");
+      return true;
+    }
+    return false;
+  };
+
   const fetchAdminReservations = useCallback(async (status = null) => {
     try {
       const list = await api.getAdminReservations(status);
@@ -340,7 +346,12 @@ export const AppProvider = ({ children }) => {
       return list;
     } catch (err) {
       console.error("Failed to fetch admin reservations:", err);
-      showToast("Failed to fetch reservations.", "error");
+      if (!handleAuthFailure(err)) {
+        showToast(
+          err?.response?.data?.message || "Failed to fetch reservations.",
+          "error",
+        );
+      }
       throw err;
     }
   }, []);
@@ -354,9 +365,11 @@ export const AppProvider = ({ children }) => {
       showToast(`Reservation ${status === "confirmed" ? "accepted" : "rejected"}.`, "success");
       return updated;
     } catch (err) {
-      const message =
-        err.response?.data?.message || "Failed to update reservation status.";
-      showToast(message, "error");
+      if (!handleAuthFailure(err)) {
+        const message =
+          err.response?.data?.message || "Failed to update reservation status.";
+        showToast(message, "error");
+      }
       throw err;
     }
   };
