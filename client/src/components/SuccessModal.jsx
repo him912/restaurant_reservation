@@ -21,19 +21,19 @@ export const SuccessModal = ({ reservation, onClose }) => {
           id="success-modal-card"
         >
           {/* Main Success Greeting Banner */}
-          <div className="bg-indigo-650 text-white p-6 text-center relative">
+          <div className="bg-white border-b border-slate-200 p-6 text-center relative">
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 text-indigo-100 hover:text-white transition-colors p-1 bg-indigo-700/40 rounded-full cursor-pointer"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors p-1 bg-slate-100 hover:bg-slate-200 rounded-full cursor-pointer"
               id="close-success-btn"
             >
               <X size={18} />
             </button>
-            <div className="w-14 h-14 bg-indigo-500 rounded-full flex items-center justify-center mx-auto mb-3 shadow-md border border-indigo-400">
+            <div className="w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-md">
               <Check size={28} className="text-white" />
             </div>
-            <h3 className="text-xl font-bold tracking-tight">Reservation Confirmed!</h3>
-            <p className="text-indigo-150 text-xs mt-1">Your dining table is locked and loaded.</p>
+            <h3 className="text-xl font-bold tracking-tight text-black">Reservation Confirmed!</h3>
+            <p className="text-slate-500 text-xs mt-1">Your dining table is locked and loaded.</p>
           </div>
 
           {/* Ticket Header & Spot Image */}
