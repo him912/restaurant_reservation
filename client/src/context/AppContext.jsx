@@ -86,6 +86,7 @@ export const AppProvider = ({ children }) => {
   const [restaurants, setRestaurants] = useState([]);
   const [reservations, setReservations] = useState([]);
   const [adminReservations, setAdminReservations] = useState([]);
+  const [adminReviews, setAdminReviews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState({ message: "", type: null });
 
@@ -374,6 +375,58 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const fetchAdminReviews = useCallback(async (filters = {}) => {
+    try {
+      const list = await api.getAdminReviews(filters);
+      setAdminReviews(list);
+      return list;
+    } catch (err) {
+      console.error("Failed to fetch admin reviews:", err);
+      if (!handleAuthFailure(err)) {
+        showToast(
+          err?.response?.data?.message || "Failed to fetch reviews.",
+          "error",
+        );
+      }
+      throw err;
+    }
+  }, []);
+
+  const deleteAdminReview = async (reviewId) => {
+    try {
+      await api.deleteAdminReview(reviewId);
+      setAdminReviews((prev) => prev.filter((r) => r.id !== reviewId));
+      showToast("Review deleted.", "success");
+    } catch (err) {
+      if (!handleAuthFailure(err)) {
+        showToast(
+          err?.response?.data?.message || "Failed to delete review.",
+          "error",
+        );
+      }
+      throw err;
+    }
+  };
+
+  const replyAdminReview = async (reviewId, comment) => {
+    try {
+      const updated = await api.replyAdminReview(reviewId, comment);
+      setAdminReviews((prev) =>
+        prev.map((r) => (r.id === reviewId ? updated : r)),
+      );
+      showToast("Reply posted.", "success");
+      return updated;
+    } catch (err) {
+      if (!handleAuthFailure(err)) {
+        showToast(
+          err?.response?.data?.message || "Failed to post reply.",
+          "error",
+        );
+      }
+      throw err;
+    }
+  };
+
   const refreshReservations = async () => {
     const list = await api.getReservations();
     setReservations(list);
@@ -640,6 +693,7 @@ export const AppProvider = ({ children }) => {
         restaurants,
         reservations,
         adminReservations,
+        adminReviews,
         isLoading,
         setIsProfileModalOpen,
         isProfileModalOpen,
@@ -652,6 +706,9 @@ export const AppProvider = ({ children }) => {
         fetchAdminRestaurantsByStatus,
         fetchAdminReservations,
         updateAdminReservationStatus,
+        fetchAdminReviews,
+        deleteAdminReview,
+        replyAdminReview,
         refreshReservations,
         addNewReservation,
         cancelUserReservation,

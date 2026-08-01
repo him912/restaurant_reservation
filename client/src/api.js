@@ -37,6 +37,10 @@ const getAuthHeaders = () => {
 const normalizeReview = (review) => {
   if (!review) return null;
   const id = review._id || review.id;
+  const restaurant =
+    typeof review.restaurantId === "object" && review.restaurantId
+      ? review.restaurantId
+      : {};
   return {
     ...review,
     id,
@@ -46,11 +50,21 @@ const normalizeReview = (review) => {
     reviewerName:
       review.userId?.username ||
       review.reviewerName ||
-      review.reviewerName ||
       review.name ||
       "",
+    reviewerEmail: review.userId?.email || review.reviewerEmail || "",
+    restaurantName: review.restaurantName || restaurant.name || "",
+    restaurantId: restaurant._id || restaurant.id || review.restaurantId || "",
     date: review.createdAt || review.date || new Date().toISOString(),
     photos: Array.isArray(review.photos) ? review.photos : [],
+    responses: Array.isArray(review.responses)
+      ? review.responses.map((r) => ({
+          ...r,
+          id: r._id || r.id,
+          authorName: r.userId?.username || r.authorName || "Staff",
+          authorRole: r.userId?.role || r.authorRole || "",
+        }))
+      : [],
   };
 };
 
@@ -626,6 +640,51 @@ export const api = {
 
   addReview: async (review, files = []) => {
     return api.createReview(review, files);
+  },
+
+  getAdminReviews: async ({ rating = null, restaurant = null } = {}) => {
+    try {
+      const params = new URLSearchParams();
+      params.set("limit", "100");
+      if (rating) params.set("rating", String(rating));
+      if (restaurant) params.set("restaurant", restaurant);
+      const response = await axios.get(
+        `${API_URL}/admin/reviews?${params.toString()}`,
+        getAuthConfig(),
+      );
+      const reviews = response.data?.data || [];
+      return Array.isArray(reviews) ? reviews.map(normalizeReview) : [];
+    } catch (err) {
+      console.error("Failed to fetch admin reviews:", err);
+      throw err;
+    }
+  },
+
+  deleteAdminReview: async (reviewId) => {
+    try {
+      const response = await axios.delete(
+        `${API_URL}/admin/reviews/${reviewId}`,
+        getAuthConfig(),
+      );
+      return response.data;
+    } catch (err) {
+      console.error("Failed to delete admin review:", err);
+      throw err;
+    }
+  },
+
+  replyAdminReview: async (reviewId, comment) => {
+    try {
+      const response = await axios.post(
+        `${API_URL}/admin/reviews/${reviewId}/reply`,
+        { comment },
+        getAuthConfig(),
+      );
+      return normalizeReview(response.data?.data || response.data);
+    } catch (err) {
+      console.error("Failed to reply to review as admin:", err);
+      throw err;
+    }
   },
 
   // RESERVATIONS

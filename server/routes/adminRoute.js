@@ -7,6 +7,7 @@ const {
   toggleRestaurantStatus,
   getAllReviewsAdmin,
   deleteReviewAdmin,
+  replyToReviewAdmin,
   getAllReservationsAdmin,
   cancelReservationAdmin,
   updateReservationStatusAdmin,
@@ -32,6 +33,7 @@ router.put(
 
 // Review management
 router.get("/reviews", protect, adminOnly, getAllReviewsAdmin);
+router.post("/reviews/:id/reply", protect, adminOnly, replyToReviewAdmin);
 router.delete("/reviews/:id", protect, adminOnly, deleteReviewAdmin);
 
 // Reservation management

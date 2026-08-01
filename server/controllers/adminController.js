@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Restaurant = require("../models/Restaurant");
 const Reservation = require("../models/Reservation");
 const Review = require("../models/Review");
@@ -134,19 +135,20 @@ exports.toggleRestaurantStatus = async (req, res) => {
 // ================= GET ALL REVIEWS (ADMIN) =================
 exports.getAllReviewsAdmin = async (req, res) => {
   try {
-    const { rating, restaurant, page = 1, limit = 20 } = req.query;
+    const { rating, restaurant, page = 1, limit = 50 } = req.query;
 
     const query = {};
     if (rating) query.rating = Number(rating);
     if (restaurant) query.restaurantId = restaurant;
 
     const pageNumber = Number(page) > 0 ? Number(page) : 1;
-    const limitNumber = Number(limit) > 0 ? Number(limit) : 20;
+    const limitNumber = Number(limit) > 0 ? Number(limit) : 50;
 
     const total = await Review.countDocuments(query);
     const reviews = await Review.find(query)
       .populate("userId", "username email")
       .populate("restaurantId", "name")
+      .populate("responses.userId", "username email role")
       .sort({ createdAt: -1 })
       .skip((pageNumber - 1) * limitNumber)
       .limit(limitNumber);
@@ -157,6 +159,54 @@ exports.getAllReviewsAdmin = async (req, res) => {
       page: pageNumber,
       limit: limitNumber,
       data: reviews,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= REPLY TO REVIEW (ADMIN) =================
+exports.replyToReviewAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comment } = req.body;
+    const userId = req.user?.id;
+
+    if (!comment || !String(comment).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Response comment is required",
+      });
+    }
+
+    const review = await Review.findById(id);
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: "Review not found",
+      });
+    }
+
+    review.responses.push({
+      _id: new mongoose.Types.ObjectId(),
+      userId,
+      comment: String(comment).trim(),
+      createdAt: new Date(),
+    });
+    await review.save();
+
+    const populated = await Review.findById(id)
+      .populate("userId", "username email")
+      .populate("restaurantId", "name")
+      .populate("responses.userId", "username email role");
+
+    res.status(201).json({
+      success: true,
+      message: "Admin reply added",
+      data: populated,
     });
   } catch (error) {
     res.status(500).json({
@@ -179,7 +229,17 @@ exports.deleteReviewAdmin = async (req, res) => {
       });
     }
 
+    const restaurantId = review.restaurantId;
     await review.deleteOne();
+
+    // Recalculate restaurant rating after deletion
+    const remaining = await Review.find({ restaurantId });
+    const averageRating = remaining.length
+      ? remaining.reduce((sum, r) => sum + r.rating, 0) / remaining.length
+      : 0;
+    await Restaurant.findByIdAndUpdate(restaurantId, {
+      rating: Number(averageRating.toFixed(1)),
+    });
 
     res.status(200).json({
       success: true,

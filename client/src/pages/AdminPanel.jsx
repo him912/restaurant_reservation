@@ -21,6 +21,8 @@ import {
   Check,
   Clock,
   CalendarCheck2,
+  MessageSquare,
+  Send,
 } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -28,6 +30,7 @@ export const AdminPanel = () => {
   const {
     restaurants,
     adminReservations,
+    adminReviews,
     currentUser,
     toggleRestaurantVisibility,
     clearRestaurantReport,
@@ -36,6 +39,9 @@ export const AdminPanel = () => {
     fetchAdminRestaurantsByStatus,
     fetchAdminReservations,
     updateAdminReservationStatus,
+    fetchAdminReviews,
+    deleteAdminReview,
+    replyAdminReview,
     createRestaurant,
     uploadRestaurantGallery,
     openAuthModal,
@@ -46,6 +52,10 @@ export const AdminPanel = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [reservationFilterStatus, setReservationFilterStatus] = useState("all");
   const [reservationSearchQuery, setReservationSearchQuery] = useState("");
+  const [reviewSearchQuery, setReviewSearchQuery] = useState("");
+  const [reviewRatingFilter, setReviewRatingFilter] = useState("all");
+  const [replyDrafts, setReplyDrafts] = useState({});
+  const [replyingToId, setReplyingToId] = useState(null);
   const [isCreateMode, setIsCreateMode] = useState(false);
 
   // Restaurant creation form state
@@ -110,6 +120,24 @@ export const AdminPanel = () => {
     fetchAdminReservations,
     isAdminAuthenticated,
   ]);
+
+  // Fetch reviews when Reviews tab is active or rating filter changes
+  useEffect(() => {
+    if (activeTab !== "reviews" || !isAdminAuthenticated) return;
+
+    const loadReviews = async () => {
+      try {
+        const filters = {};
+        if (reviewRatingFilter !== "all") {
+          filters.rating = reviewRatingFilter;
+        }
+        await fetchAdminReviews(filters);
+      } catch (err) {
+        console.error("Failed to load reviews:", err);
+      }
+    };
+    loadReviews();
+  }, [activeTab, reviewRatingFilter, fetchAdminReviews, isAdminAuthenticated]);
 
   // Filter and sort restaurants
   // API already filters by status, so we only need to filter for "reported" and search
@@ -220,6 +248,64 @@ export const AdminPanel = () => {
       }
     } catch (err) {
       console.error("Failed to reject reservation:", err);
+    }
+  };
+
+  const reviewStats = useMemo(() => {
+    return {
+      total: adminReviews.length,
+      withReplies: adminReviews.filter(
+        (r) => Array.isArray(r.responses) && r.responses.length > 0,
+      ).length,
+      unanswered: adminReviews.filter(
+        (r) => !Array.isArray(r.responses) || r.responses.length === 0,
+      ).length,
+      avgRating:
+        adminReviews.length > 0
+          ? (
+              adminReviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
+              adminReviews.length
+            ).toFixed(1)
+          : "0",
+    };
+  }, [adminReviews]);
+
+  const filteredReviews = useMemo(() => {
+    const query = reviewSearchQuery.toLowerCase();
+    return adminReviews.filter((r) => {
+      return (
+        r.reviewerName?.toLowerCase().includes(query) ||
+        r.reviewerEmail?.toLowerCase().includes(query) ||
+        r.restaurantName?.toLowerCase().includes(query) ||
+        r.title?.toLowerCase().includes(query) ||
+        r.content?.toLowerCase().includes(query)
+      );
+    });
+  }, [adminReviews, reviewSearchQuery]);
+
+  const handleDeleteReview = async (reviewId) => {
+    try {
+      if (window.confirm("Delete this review permanently?")) {
+        await deleteAdminReview(reviewId);
+        setReplyingToId(null);
+      }
+    } catch (err) {
+      console.error("Failed to delete review:", err);
+    }
+  };
+
+  const handleReplySubmit = async (reviewId) => {
+    const comment = (replyDrafts[reviewId] || "").trim();
+    if (!comment) {
+      showToast("Reply cannot be empty.", "error");
+      return;
+    }
+    try {
+      await replyAdminReview(reviewId, comment);
+      setReplyDrafts((prev) => ({ ...prev, [reviewId]: "" }));
+      setReplyingToId(null);
+    } catch (err) {
+      console.error("Failed to reply to review:", err);
     }
   };
 
@@ -369,7 +455,7 @@ export const AdminPanel = () => {
                   Administrative Control Panel
                 </h1>
                 <p className="text-slate-300 mt-2">
-                  Manage restaurants, reservations, visibility status, and user reports
+                  Manage restaurants, reservations, and user reviews
                 </p>
               </div>
             </div>
@@ -384,7 +470,7 @@ export const AdminPanel = () => {
             )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setActiveTab("restaurants")}
               className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
@@ -405,10 +491,20 @@ export const AdminPanel = () => {
             >
               Reservations
             </button>
+            <button
+              onClick={() => setActiveTab("reviews")}
+              className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                activeTab === "reviews"
+                  ? "bg-amber-500 text-white shadow-lg"
+                  : "bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10"
+              }`}
+            >
+              Reviews
+            </button>
           </div>
         </motion.div>
 
-        {activeTab === "restaurants" ? (
+        {activeTab === "restaurants" && (
           <>
         {/* Statistics Cards */}
         <motion.div
@@ -743,7 +839,9 @@ export const AdminPanel = () => {
           </div>
         </motion.div>
           </>
-        ) : (
+        )}
+
+        {activeTab === "reservations" && (
           <>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -946,6 +1044,232 @@ export const AdminPanel = () => {
                   </div>
                 )}
               </div>
+            </motion.div>
+          </>
+        )}
+
+        {activeTab === "reviews" && (
+          <>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-12"
+            >
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
+                <div className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">
+                  Total Reviews
+                </div>
+                <div className="text-3xl font-black text-white">{reviewStats.total}</div>
+              </div>
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 backdrop-blur-sm">
+                <div className="text-amber-300 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-1">
+                  <Star size={12} />
+                  Avg Rating
+                </div>
+                <div className="text-3xl font-black text-amber-400">{reviewStats.avgRating}</div>
+              </div>
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 backdrop-blur-sm">
+                <div className="text-emerald-300 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-1">
+                  <MessageSquare size={12} />
+                  Replied
+                </div>
+                <div className="text-3xl font-black text-emerald-400">{reviewStats.withReplies}</div>
+              </div>
+              <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-2xl p-6 backdrop-blur-sm">
+                <div className="text-indigo-300 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-1">
+                  <Clock size={12} />
+                  Unanswered
+                </div>
+                <div className="text-3xl font-black text-indigo-400">{reviewStats.unanswered}</div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm mb-8"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-widest block mb-2">
+                    Search Reviews
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Search by reviewer, restaurant, or content..."
+                    value={reviewSearchQuery}
+                    onChange={(e) => setReviewSearchQuery(e.target.value)}
+                    className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-widest block mb-2">
+                    Filter Rating
+                  </label>
+                  <select
+                    value={reviewRatingFilter}
+                    onChange={(e) => setReviewRatingFilter(e.target.value)}
+                    className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="all">All Ratings</option>
+                    <option value="5">5 Stars</option>
+                    <option value="4">4 Stars</option>
+                    <option value="3">3 Stars</option>
+                    <option value="2">2 Stars</option>
+                    <option value="1">1 Star</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-widest block mb-2">
+                    Results
+                  </label>
+                  <div className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-white font-semibold flex items-center justify-between">
+                    <span>{filteredReviews.length}</span>
+                    <span className="text-xs text-slate-400">
+                      of {adminReviews.length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="space-y-4"
+            >
+              {filteredReviews.length > 0 ? (
+                filteredReviews.map((review) => (
+                  <div
+                    key={review.id}
+                    className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm"
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-3 mb-2">
+                          <span className="font-bold text-white">
+                            {review.reviewerName || "Anonymous"}
+                          </span>
+                          <span className="text-slate-500 text-xs">
+                            {review.reviewerEmail}
+                          </span>
+                          <span className="text-slate-400 text-xs">
+                            {formatDate(review.date)}
+                          </span>
+                        </div>
+                        <div className="text-amber-300 text-sm font-semibold mb-1">
+                          {review.restaurantName || "Unknown restaurant"}
+                        </div>
+                        <div className="mb-2">
+                          <RatingStars rating={review.rating} />
+                        </div>
+                        {review.title && (
+                          <h4 className="text-white font-bold text-sm mb-1">
+                            {review.title}
+                          </h4>
+                        )}
+                        <p className="text-slate-300 text-sm leading-relaxed">
+                          {review.content || "No comment provided."}
+                        </p>
+
+                        {Array.isArray(review.responses) &&
+                          review.responses.length > 0 && (
+                            <div className="mt-4 space-y-2 pl-4 border-l-2 border-amber-500/30">
+                              {review.responses.map((response) => (
+                                <div
+                                  key={response.id || response._id}
+                                  className="bg-amber-500/5 rounded-xl px-4 py-3"
+                                >
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <MessageSquare
+                                      size={12}
+                                      className="text-amber-400"
+                                    />
+                                    <span className="text-amber-300 text-xs font-bold uppercase tracking-wider">
+                                      {response.authorRole === "admin"
+                                        ? "Admin reply"
+                                        : "Reply"}{" "}
+                                      · {response.authorName}
+                                    </span>
+                                  </div>
+                                  <p className="text-slate-300 text-sm">
+                                    {response.comment}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                        {replyingToId === review.id && (
+                          <div className="mt-4 space-y-2">
+                            <textarea
+                              value={replyDrafts[review.id] || ""}
+                              onChange={(e) =>
+                                setReplyDrafts((prev) => ({
+                                  ...prev,
+                                  [review.id]: e.target.value,
+                                }))
+                              }
+                              rows={3}
+                              placeholder="Write an admin reply..."
+                              className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 transition-all text-sm"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleReplySubmit(review.id)}
+                                className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 font-bold rounded-lg transition-all flex items-center gap-1.5 text-xs uppercase tracking-wider"
+                              >
+                                <Send size={12} />
+                                Post Reply
+                              </button>
+                              <button
+                                onClick={() => setReplyingToId(null)}
+                                className="px-4 py-2 bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 font-bold rounded-lg transition-all text-xs uppercase tracking-wider"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {replyingToId !== review.id && (
+                          <button
+                            onClick={() => setReplyingToId(review.id)}
+                            className="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 font-bold rounded-lg transition-all flex items-center gap-1 text-xs uppercase tracking-wider"
+                          >
+                            <MessageSquare size={12} />
+                            Reply
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteReview(review.id)}
+                          className="px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 font-bold rounded-lg transition-all flex items-center gap-1 text-xs uppercase tracking-wider"
+                        >
+                          <Trash2 size={12} />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="bg-white/5 border border-white/10 rounded-2xl text-center py-16">
+                  <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Star size={32} className="text-slate-400" />
+                  </div>
+                  <p className="text-slate-300 font-semibold text-lg">
+                    No reviews found
+                  </p>
+                  <p className="text-slate-500 text-sm mt-2">
+                    Try adjusting your search or filter criteria
+                  </p>
+                </div>
+              )}
             </motion.div>
           </>
         )}
