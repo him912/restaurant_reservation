@@ -340,20 +340,29 @@ export const RestaurantDetails = () => {
   };
 
   const calculatedRatingAverages = useMemo(() => {
-    if (reviews.length === 0) return { stars5: 0, stars4: 0, stars3: 0, stars2: 1 };
-    const groups = { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 };
-    reviews.forEach(r => {
-      const bucket = Math.round(r.rating).toString();
-      if (groups[bucket] !== undefined) groups[bucket]++;
+    const groups = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    reviews.forEach((r) => {
+      const bucket = Math.min(5, Math.max(1, Math.round(Number(r.rating) || 0)));
+      groups[bucket]++;
     });
-    const len = reviews.length;
+    const toPercent = (count) =>
+      reviews.length === 0 ? 0 : Math.round((count / reviews.length) * 100);
     return {
-      stars5: Math.round((groups['5'] / len) * 100),
-      stars4: Math.round((groups['4'] / len) * 100),
-      stars3: Math.round((groups['3'] / len) * 100),
-      starsRemainder: Math.round(((groups['2'] + groups['1']) / len) * 100)
+      stars5: toPercent(groups[5]),
+      stars4: toPercent(groups[4]),
+      stars3: toPercent(groups[3]),
+      stars2: toPercent(groups[2]),
+      stars1: toPercent(groups[1]),
     };
   }, [reviews]);
+
+  const ratingDistributionRows = [
+    { label: "5 star", percent: calculatedRatingAverages.stars5 },
+    { label: "4 star", percent: calculatedRatingAverages.stars4 },
+    { label: "3 star", percent: calculatedRatingAverages.stars3 },
+    { label: "2 star", percent: calculatedRatingAverages.stars2 },
+    { label: "1 star", percent: calculatedRatingAverages.stars1 },
+  ];
 
   if (isLoading) {
     return (
@@ -548,37 +557,22 @@ export const RestaurantDetails = () => {
                 </div>
 
                 <div className="md:col-span-2 space-y-2 text-xs" id="rating-ratio-bars">
-                  <div className="flex items-center gap-3">
-                    <span className="w-10 text-right font-medium text-slate-550 font-semibold">5 star</span>
-                    <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-650 rounded-full" style={{ width: `${calculatedRatingAverages.stars5}%` }}></div>
+                  {ratingDistributionRows.map((row) => (
+                    <div key={row.label} className="flex items-center gap-3">
+                      <span className="w-12 text-right font-semibold text-slate-600 shrink-0">
+                        {row.label}
+                      </span>
+                      <div className="flex-1 h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-indigo-600 rounded-full transition-all duration-300"
+                          style={{ width: `${row.percent}%` }}
+                        />
+                      </div>
+                      <span className="w-10 text-slate-600 font-bold text-right shrink-0">
+                        {row.percent}%
+                      </span>
                     </div>
-                    <span className="w-8 text-slate-400 font-bold text-right">{calculatedRatingAverages.stars5}%</span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <span className="w-10 text-right font-medium text-slate-550 font-semibold">4 star</span>
-                    <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-650 rounded-full" style={{ width: `${calculatedRatingAverages.stars4}%` }}></div>
-                    </div>
-                    <span className="w-8 text-slate-400 font-bold text-right">{calculatedRatingAverages.stars4}%</span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <span className="w-10 text-right font-medium text-slate-550 font-semibold">3 star</span>
-                    <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-650 rounded-full" style={{ width: `${calculatedRatingAverages.stars3}%` }}></div>
-                    </div>
-                    <span className="w-8 text-slate-400 font-bold text-right">{calculatedRatingAverages.stars3}%</span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <span className="w-10 text-right font-medium text-slate-550 font-semibold">2 star &lt;</span>
-                    <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-650 rounded-full" style={{ width: `${calculatedRatingAverages.starsRemainder}%` }}></div>
-                    </div>
-                    <span className="w-8 text-slate-400 font-bold text-right">{calculatedRatingAverages.starsRemainder}%</span>
-                  </div>
+                  ))}
                 </div>
               </div>
 
