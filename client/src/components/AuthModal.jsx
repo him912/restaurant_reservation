@@ -18,7 +18,6 @@ import {
   Building,
   ArrowRight,
   RefreshCw,
-  KeyRound,
 } from "lucide-react";
 
 export const AuthModal = () => {
@@ -41,9 +40,8 @@ export const AuthModal = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
-  // Password Reset simulation state
+  // Password reset state
   const [isResetSent, setIsResetSent] = useState(false);
-  const [resetCode, setResetCode] = useState("");
 
   if (!isAuthModalOpen) return null;
 
@@ -90,10 +88,8 @@ export const AuthModal = () => {
         const success = await forgotPassword(email);
         if (success) {
           setIsResetSent(true);
-          // Generate a mock code for high fidelity previewing
-          setResetCode(Math.floor(100000 + Math.random() * 900000).toString());
         } else {
-          setError("Email not found. Try signing up!");
+          setError("Could not send reset link. Check your email or sign up.");
         }
       }
     } catch (err) {
@@ -170,7 +166,7 @@ export const AuthModal = () => {
                 {authModalTab === "signup" &&
                   "Gain custom VIP dining point tallies and critic status levels."}
                 {authModalTab === "forgot" &&
-                  "Authenticate identity to reset system profile credentials."}
+                  "Enter your registered email and we'll send you a reset link."}
               </p>
             </div>
 
@@ -188,7 +184,7 @@ export const AuthModal = () => {
               </div>
             )}
 
-            {/* Simulated Password Reset success state */}
+            {/* Password reset email sent */}
             {authModalTab === "forgot" && isResetSent ? (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -197,32 +193,20 @@ export const AuthModal = () => {
                 id="reset-success-stage"
               >
                 <div className="w-12 h-12 bg-emerald-950/50 text-emerald-400 border border-emerald-800/50 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                  <KeyRound size={20} className="animate-bounce" />
+                  <Mail size={20} />
                 </div>
                 <div className="space-y-1">
                   <span className="text-emerald-400 font-bold text-xs uppercase tracking-widest block">
-                    Recovery Dispatched
+                    Reset Link Sent
                   </span>
                   <p className="text-slate-300 text-xs leading-relaxed max-w-sm mx-auto">
-                    We've simulated sending a recovery link to{" "}
+                    We've sent a password reset link to{" "}
                     <span className="font-bold text-white break-all">
                       {email}
                     </span>
-                    . Use the security credentials below:
+                    . Check your inbox and spam folder. The link expires in 10
+                    minutes.
                   </p>
-                </div>
-
-                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 max-w-xs mx-auto">
-                  <span className="block text-[9px] text-slate-500 font-mono tracking-widest uppercase">
-                    Secret OTP Code
-                  </span>
-                  <span className="block text-2xl font-black text-indigo-400 tracking-widest mt-1 font-mono">
-                    {resetCode}
-                  </span>
-                  <span className="block text-[9px] text-slate-400 mt-2">
-                    Default Password fallback matches{" "}
-                    <strong className="text-slate-205">password</strong>
-                  </span>
                 </div>
 
                 <button

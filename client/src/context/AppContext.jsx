@@ -270,31 +270,34 @@ export const AppProvider = ({ children }) => {
   };
 
   const forgotPassword = async (email) => {
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    setIsLoading(false);
-
     if (!email) {
       showToast("Please enter your email address.", "error");
       return false;
     }
 
-    const trimmedEmail = email.toLowerCase().trim();
-    const user = registeredUsers.find(
-      (u) => u.email.toLowerCase() === trimmedEmail,
-    );
+    try {
+      const response = await axios.post(
+        `${API_URL}/auth/forgot-password`,
+        { email: email.toLowerCase().trim() },
+        { headers: { "Content-Type": "application/json" } },
+      );
 
-    if (user) {
+      const result = response.data || {};
+      if (!result.success) {
+        showToast(result.message || "Failed to send reset email.", "error");
+        return false;
+      }
+
       showToast(
-        `A password recovery code has been sent to ${trimmedEmail}!`,
+        result.message || "Reset link sent to your email.",
         "success",
       );
       return true;
-    } else {
-      showToast(
-        "Email address not found. Please double-check or Create an Account.",
-        "error",
-      );
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        "Failed to send reset email. Please try again.";
+      showToast(message, "error");
       return false;
     }
   };

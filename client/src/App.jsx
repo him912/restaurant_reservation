@@ -14,6 +14,7 @@ import { RestaurantDetails } from "./pages/RestaurantDetails";
 import { CustomerDashboard } from "./pages/CustomerDashboard";
 import { OwnerDashboard } from "./pages/OwnerDashboard";
 import { AdminPanel } from "./pages/AdminPanel";
+import { ResetPassword } from "./pages/ResetPassword";
 import ProfileModal from "./components/ProfileModel";
 
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
               <Route path="/dashboard" element={<CustomerDashboard />} />
               <Route path="/owner-dashboard" element={<OwnerDashboard />} />
               <Route path="/admin-panel" element={<AdminPanel />} />
+              <Route path="/reset-password/:token" element={<ResetPassword />} />
             </Routes>
           </div>
 
