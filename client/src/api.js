@@ -723,6 +723,38 @@ export const api = {
     }
   },
 
+  getOwnerReservations: async (restaurantId = null) => {
+    try {
+      let url = `${API_URL}/reservations/owner`;
+      if (restaurantId) {
+        url += `?restaurantId=${restaurantId}`;
+      }
+      const response = await axios.get(url, getAuthConfig());
+      const reservations = response.data?.data || [];
+      return Array.isArray(reservations)
+        ? reservations.map(normalizeReservation)
+        : [];
+    } catch (err) {
+      console.error("Failed to fetch owner reservations:", err);
+      throw err;
+    }
+  },
+
+  updateOwnerReservationStatus: async (id, status) => {
+    const apiStatus = mapStatusToApi(status);
+    try {
+      const response = await axios.put(
+        `${API_URL}/reservations/${id}/owner-status`,
+        { status: apiStatus },
+        getAuthConfig(),
+      );
+      return normalizeReservation(response.data?.data || response.data);
+    } catch (err) {
+      console.error("Failed to update owner reservation status:", err);
+      throw err;
+    }
+  },
+
   getReservationsForRestaurant: async (restaurantId) => {
     await delay(250);
     const data = localStorage.getItem("restaurant_platform_reservations");

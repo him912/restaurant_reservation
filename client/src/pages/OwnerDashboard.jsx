@@ -28,8 +28,9 @@ import { motion } from "motion/react";
 export const OwnerDashboard = () => {
   const {
     restaurants,
-    reservations,
+    ownerReservations,
     changeBookingStatus,
+    fetchOwnerReservations,
     createRestaurant,
     uploadRestaurantGallery,
     updateRestaurantProfile,
@@ -70,10 +71,34 @@ export const OwnerDashboard = () => {
   );
 
   useEffect(() => {
-    if (!selectedRestaurantId && restaurants.length > 0) {
+    if (restaurants.length === 0) {
+      setSelectedRestaurantId(null);
+      return;
+    }
+
+    const stillValid = restaurants.some(
+      (r) => r.id === selectedRestaurantId || r._id === selectedRestaurantId,
+    );
+
+    if (!selectedRestaurantId || !stillValid) {
       setSelectedRestaurantId(restaurants[0].id || restaurants[0]._id);
+      setIsCreateMode(false);
     }
   }, [restaurants, selectedRestaurantId]);
+
+  // Load bookings for the owner's restaurants
+  useEffect(() => {
+    const loadOwnerBookings = async () => {
+      try {
+        await fetchOwnerReservations(
+          isCreateMode ? null : selectedRestaurantId || null,
+        );
+      } catch (err) {
+        console.error("Failed to load owner reservations:", err);
+      }
+    };
+    loadOwnerBookings();
+  }, [selectedRestaurantId, isCreateMode, fetchOwnerReservations]);
 
   const restaurant = useMemo(() => {
     if (isCreateMode) return null;
@@ -85,6 +110,16 @@ export const OwnerDashboard = () => {
       null
     );
   }, [restaurants, selectedRestaurantId, isCreateMode]);
+
+  // Bookings for the selected restaurant (or all owned venues)
+  const ownerBookings = useMemo(() => {
+    if (!selectedRestaurantId || isCreateMode) return ownerReservations;
+    return ownerReservations.filter(
+      (r) =>
+        String(r.restaurantId) === String(selectedRestaurantId) ||
+        !selectedRestaurantId,
+    );
+  }, [ownerReservations, selectedRestaurantId, isCreateMode]);
 
   const shouldShowCreateForm = isCreateMode || (!restaurant && restaurants.length === 0);
 
@@ -124,24 +159,24 @@ export const OwnerDashboard = () => {
 
   const [activeTab, setActiveTab] = useState("bookings");
 
-  // Compute stats across ALL reservations for dynamic sandbox overview
-  const totalBookings = reservations.length;
-  const confirmedBookings = reservations.filter(
+  // Compute stats across owner restaurant bookings
+  const totalBookings = ownerBookings.length;
+  const confirmedBookings = ownerBookings.filter(
     (r) => r.status === "confirmed",
   ).length;
-  const pendingBookings = reservations.filter(
+  const pendingBookings = ownerBookings.filter(
     (r) => r.status === "pending",
   ).length;
-  const cancelledBookings = reservations.filter(
+  const cancelledBookings = ownerBookings.filter(
     (r) => r.status === "cancelled",
   ).length;
 
   // Revenue estimation: average dining covers are $110/guest for confirmed bookings
   const estRevenue = useMemo(() => {
-    return reservations
+    return ownerBookings
       .filter((r) => r.status === "confirmed")
-      .reduce((sum, r) => sum + r.guests * 110, 0);
-  }, [reservations]);
+      .reduce((sum, r) => sum + (r.guests || r.partySize || 0) * 110, 0);
+  }, [ownerBookings]);
 
   // Handle Feature checkboxes toggle
   const handleFeatureToggle = (feat) => {
@@ -515,15 +550,14 @@ export const OwnerDashboard = () => {
                   Reservations Control Desk
                 </h3>
                 <p className="text-slate-500 text-xs mt-0.5">
-                  Real-time listing of all platform reservation actions.
-                  (Sandbox overrides available)
+                  Accept or reject bookings for your restaurant — pending requests need your approval.
                 </p>
               </div>
             </div>
 
             {/* List Table */}
             <div className="overflow-x-auto" id="reservations-table-container">
-              {reservations.length > 0 ? (
+              {ownerBookings.length > 0 ? (
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-50/50 border-b border-slate-100 text-slate-450 uppercase tracking-wider font-extrabold text-[10px]">
@@ -541,7 +575,7 @@ export const OwnerDashboard = () => {
                     className="divide-y divide-slate-100"
                     id="reservations-table-body"
                   >
-                    {reservations.map((res) => (
+                    {ownerBookings.map((res) => (
                       <tr
                         key={res.id}
                         className="hover:bg-slate-50/50 transition-colors"
@@ -553,8 +587,12 @@ export const OwnerDashboard = () => {
                           </div>
                           <div className="text-slate-400 font-bold mt-0.5 flex items-center gap-1">
                             <span>{res.customerEmail}</span>
-                            <span>•</span>
-                            <span>{res.customerPhone}</span>
+                            {res.customerPhone ? (
+                              <>
+                                <span>•</span>
+                                <span>{res.customerPhone}</span>
+                              </>
+                            ) : null}
                           </div>
                         </td>
 
@@ -579,7 +617,7 @@ export const OwnerDashboard = () => {
                         <td className="p-4">
                           <span className="font-extrabold text-slate-900 text-sm bg-slate-50 border border-slate-155 py-1 px-2.5 rounded-lg flex items-center gap-1.5 w-max font-semibold">
                             <Users size={12} className="text-slate-400" />
-                            <span>{res.guests} Guests</span>
+                            <span>{res.guests || res.partySize} Guests</span>
                           </span>
                         </td>
 
@@ -591,39 +629,49 @@ export const OwnerDashboard = () => {
                                 ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                                 : res.status === "cancelled"
                                   ? "bg-slate-100 text-slate-400 border-slate-200"
-                                  : "bg-indigo-50 text-indigo-750 border-indigo-200"
+                                  : "bg-amber-50 text-amber-800 border-amber-200"
                             }`}
                           >
-                            {res.status}
+                            {res.status === "pending"
+                              ? "awaiting approval"
+                              : res.status}
                           </span>
                         </td>
 
                         {/* Control Actions buttons */}
                         <td className="p-4 pr-6 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {res.status !== "confirmed" && (
+                            {res.status === "pending" && (
                               <button
+                                type="button"
                                 onClick={() =>
                                   changeBookingStatus(res.id, "confirmed")
                                 }
-                                className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-all flex items-center gap-1 shadow-sm shrink-0 uppercase tracking-wider text-[9px] cursor-pointer"
+                                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-all flex items-center gap-1 shadow-sm shrink-0 uppercase tracking-wider text-[9px] cursor-pointer"
                                 id={`confirm-btn-${res.id}`}
                               >
                                 <Check size={11} />
-                                <span>Confirm Booking</span>
+                                <span>Accept</span>
                               </button>
                             )}
 
                             {res.status !== "cancelled" && (
                               <button
-                                onClick={() =>
-                                  changeBookingStatus(res.id, "cancelled")
-                                }
-                                className="px-3 py-2 bg-rose-50 hover:bg-rose-105 text-rose-600 border border-rose-100 font-bold rounded-lg transition-all flex items-center gap-1 shrink-0 uppercase tracking-wider text-[9px] cursor-pointer"
+                                type="button"
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      "Reject / cancel this reservation?",
+                                    )
+                                  ) {
+                                    changeBookingStatus(res.id, "cancelled");
+                                  }
+                                }}
+                                className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 font-bold rounded-lg transition-all flex items-center gap-1 shrink-0 uppercase tracking-wider text-[9px] cursor-pointer"
                                 id={`decline-btn-${res.id}`}
                               >
                                 <X size={11} />
-                                <span>Decline Seat</span>
+                                <span>Reject</span>
                               </button>
                             )}
 
@@ -640,7 +688,7 @@ export const OwnerDashboard = () => {
                 </table>
               ) : (
                 <div className="text-center py-12 text-slate-400 italic font-semibold">
-                  No client reservations made yet.
+                  No client reservations for this restaurant yet.
                 </div>
               )}
             </div>

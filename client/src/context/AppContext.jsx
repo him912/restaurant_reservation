@@ -85,6 +85,7 @@ export const AppProvider = ({ children }) => {
   const [authModalTab, setAuthModalTab] = useState("login");
   const [restaurants, setRestaurants] = useState([]);
   const [reservations, setReservations] = useState([]);
+  const [ownerReservations, setOwnerReservations] = useState([]);
   const [adminReservations, setAdminReservations] = useState([]);
   const [adminReviews, setAdminReviews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -182,6 +183,37 @@ export const AppProvider = ({ children }) => {
 
   const closeAuthModal = () => setIsAuthModalOpen(false);
 
+  const clearSessionState = () => {
+    setRestaurants([]);
+    setReservations([]);
+    setOwnerReservations([]);
+    setAdminReservations([]);
+    setAdminReviews([]);
+    setProfile(null);
+  };
+
+  const loadSessionData = async (role) => {
+    try {
+      const rList = await api.getRestaurants();
+      setRestaurants(Array.isArray(rList) ? rList : []);
+
+      if (role === "restaurant_owner") {
+        const ownerList = await api.getOwnerReservations();
+        setOwnerReservations(Array.isArray(ownerList) ? ownerList : []);
+        setReservations([]);
+      } else if (role === "admin") {
+        setReservations([]);
+        setOwnerReservations([]);
+      } else {
+        const resList = await api.getReservations();
+        setReservations(Array.isArray(resList) ? resList : []);
+        setOwnerReservations([]);
+      }
+    } catch (err) {
+      console.error("Failed to load session data:", err);
+    }
+  };
+
   const login = async (email, password) => {
     setIsLoading(true);
     try {
@@ -199,6 +231,9 @@ export const AppProvider = ({ children }) => {
         return false;
       }
 
+      // Drop previous user session data before applying the new account
+      clearSessionState();
+
       if (result.token) {
         localStorage.setItem("dineflow_token", result.token);
       }
@@ -215,10 +250,16 @@ export const AppProvider = ({ children }) => {
         role,
       });
       showToast(result.message || `Welcome back, ${name}!`, "success");
-      const profileData = await api.getProfile();
-      setIsAuthModalOpen(false);
 
-      setProfile(profileData);
+      try {
+        const profileData = await api.getProfile();
+        setProfile(profileData);
+      } catch (profileErr) {
+        console.error("Failed to load profile after login:", profileErr);
+      }
+
+      await loadSessionData(role);
+      setIsAuthModalOpen(false);
       return true;
     } catch (err) {
       const message =
@@ -309,7 +350,9 @@ export const AppProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem("dineflow_token");
+    localStorage.removeItem("dineflow_current_user");
     setCurrentUser(null);
+    clearSessionState();
     showToast("Successfully signed out of profile.", "info");
   };
 
@@ -334,9 +377,10 @@ export const AppProvider = ({ children }) => {
     const status = err?.response?.status;
     if (status === 401) {
       localStorage.removeItem("dineflow_token");
+      localStorage.removeItem("dineflow_current_user");
       setCurrentUser(null);
-      setAdminReservations([]);
-      showToast("Session expired. Please log in again as admin.", "error");
+      clearSessionState();
+      showToast("Session expired. Please log in again.", "error");
       openAuthModal("login");
       return true;
     }
@@ -480,13 +524,40 @@ export const AppProvider = ({ children }) => {
 
   const changeBookingStatus = async (id, status) => {
     try {
-      const updated = await api.updateReservationStatus(id, status);
-      setReservations((prev) => prev.map((r) => (r.id === id ? updated : r)));
-      showToast(`Reservation status updated to ${status}.`, "success");
+      const updated = await api.updateOwnerReservationStatus(id, status);
+      setOwnerReservations((prev) =>
+        prev.map((r) => (r.id === id ? updated : r)),
+      );
+      setReservations((prev) =>
+        prev.map((r) => (r.id === id ? updated : r)),
+      );
+      showToast(
+        `Reservation ${status === "confirmed" ? "accepted" : "rejected"}.`,
+        "success",
+      );
+      return updated;
     } catch (err) {
-      showToast("Failed to update status.", "error");
+      const message =
+        err?.response?.data?.message || "Failed to update status.";
+      showToast(message, "error");
+      throw err;
     }
   };
+
+  const fetchOwnerReservations = useCallback(async (restaurantId = null) => {
+    try {
+      const list = await api.getOwnerReservations(restaurantId);
+      setOwnerReservations(list);
+      return list;
+    } catch (err) {
+      console.error("Failed to fetch owner reservations:", err);
+      showToast(
+        err?.response?.data?.message || "Failed to fetch restaurant bookings.",
+        "error",
+      );
+      throw err;
+    }
+  }, []);
 
   const submitRestaurantReview = async (review) => {
     try {
@@ -700,6 +771,7 @@ export const AppProvider = ({ children }) => {
         switchUserRole,
         restaurants,
         reservations,
+        ownerReservations,
         adminReservations,
         adminReviews,
         isLoading,
@@ -718,6 +790,7 @@ export const AppProvider = ({ children }) => {
         deleteAdminReview,
         replyAdminReview,
         refreshReservations,
+        fetchOwnerReservations,
         addNewReservation,
         cancelUserReservation,
         updateUserReservation,

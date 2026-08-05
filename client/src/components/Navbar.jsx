@@ -25,6 +25,7 @@ export const Navbar = () => {
     currentUser,
     switchUserRole,
     reservations,
+    ownerReservations,
     openAuthModal,
     logout,
     openProfileModal,
@@ -32,9 +33,10 @@ export const Navbar = () => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
-  const pendingCount = reservations.filter(
-    (r) => r.status === "pending",
-  ).length;
+  const pendingCount =
+    currentUser?.role === "restaurant_owner"
+      ? ownerReservations.filter((r) => r.status === "pending").length
+      : reservations.filter((r) => r.status === "pending").length;
 
   const toggleMenu = () => setIsOpen(!isOpen);
 

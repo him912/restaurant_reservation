@@ -342,3 +342,133 @@ exports.getRestaurantAvailability = async (req, res) => {
     });
   }
 };
+
+// ================= OWNER: LIST RESERVATIONS FOR OWNED RESTAURANTS =================
+exports.getOwnerReservations = async (req, res) => {
+  try {
+    const ownerId = req.user?.id;
+    const { status, restaurantId } = req.query;
+
+    const ownedRestaurants = await Restaurant.find({ ownerId }).select("_id");
+    const ownedIds = ownedRestaurants.map((r) => r._id);
+
+    if (ownedIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+      });
+    }
+
+    const query = { restaurantId: { $in: ownedIds } };
+    if (status) query.status = status;
+    if (restaurantId) {
+      const isOwned = ownedIds.some((id) => id.toString() === restaurantId);
+      if (!isOwned) {
+        return res.status(403).json({
+          success: false,
+          message: "Not authorized for this restaurant",
+        });
+      }
+      query.restaurantId = restaurantId;
+    }
+
+    const reservations = await Reservation.find(query)
+      .populate("restaurantId", "name cuisineType restaurantImage")
+      .populate("userId", "username email")
+      .sort({ date: -1, time: 1 });
+
+    res.status(200).json({
+      success: true,
+      count: reservations.length,
+      data: reservations,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= OWNER: ACCEPT / REJECT RESERVATION =================
+exports.updateOwnerReservationStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const ownerId = req.user?.id;
+    const io = req.app.get("io");
+
+    if (!["reserved", "cancelled"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "status must be reserved or cancelled",
+      });
+    }
+
+    const reservation = await Reservation.findById(id);
+    if (!reservation) {
+      return res.status(404).json({
+        success: false,
+        message: "Reservation not found",
+      });
+    }
+
+    const restaurant = await Restaurant.findById(reservation.restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "Restaurant not found",
+      });
+    }
+
+    if (!restaurant.ownerId || restaurant.ownerId.toString() !== ownerId) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to manage reservations for this restaurant",
+      });
+    }
+
+    if (status === "reserved") {
+      let reservedSeats = await getReservedSeats(
+        reservation.restaurantId,
+        reservation.date,
+        reservation.time,
+      );
+
+      if (reservation.status === "reserved") {
+        reservedSeats -= reservation.partySize;
+      }
+
+      if (reservedSeats + reservation.partySize > restaurant.capacity) {
+        return res.status(400).json({
+          success: false,
+          message: "Not enough seats available for the requested time",
+        });
+      }
+    }
+
+    reservation.status = status;
+    await reservation.save();
+
+    if (io) {
+      const date = reservation.date.toISOString().split("T")[0];
+      broadcastAvailabilityUpdate(io, reservation.restaurantId.toString(), date);
+    }
+
+    const updated = await Reservation.findById(id)
+      .populate("restaurantId", "name cuisineType restaurantImage")
+      .populate("userId", "username email");
+
+    res.status(200).json({
+      success: true,
+      message: `Reservation ${status === "reserved" ? "accepted" : "rejected"}`,
+      data: updated,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
