@@ -53,6 +53,10 @@ const normalizeReview = (review) => {
       review.name ||
       "",
     reviewerEmail: review.userId?.email || review.reviewerEmail || "",
+    authorUserId:
+      review.userId?._id ||
+      review.userId?.id ||
+      (typeof review.userId === "string" ? review.userId : null),
     restaurantName: review.restaurantName || restaurant.name || "",
     restaurantId: restaurant._id || restaurant.id || review.restaurantId || "",
     date: review.createdAt || review.date || new Date().toISOString(),
@@ -640,6 +644,19 @@ export const api = {
 
   addReview: async (review, files = []) => {
     return api.createReview(review, files);
+  },
+
+  getRestaurantAvailability: async (restaurantId, date) => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/restaurants/${restaurantId}/availability`,
+        { params: { date } },
+      );
+      return response.data?.data || null;
+    } catch (err) {
+      console.error("Failed to fetch restaurant availability:", err);
+      return null;
+    }
   },
 
   getAdminReviews: async ({ rating = null, restaurant = null } = {}) => {

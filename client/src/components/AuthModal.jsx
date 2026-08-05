@@ -20,6 +20,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 
+const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
 export const AuthModal = () => {
   const {
     isAuthModalOpen,
@@ -55,16 +57,28 @@ export const AuthModal = () => {
     e.preventDefault();
     setError(null);
 
-    if (!email) {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) {
       setError("Email address is required.");
       return;
+    }
+    if (!isValidEmail(trimmedEmail)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    if (authModalTab !== "forgot") {
+      if (!password || password.length < 6) {
+        setError("Password must be at least 6 characters.");
+        return;
+      }
     }
 
     try {
       setIsSubmitting(true);
 
       if (authModalTab === "login") {
-        const success = await login(email, password || "password");
+        const success = await login(trimmedEmail, password);
 
         console.log("Login success:", success);
         if (success) {
@@ -73,12 +87,12 @@ export const AuthModal = () => {
           setError("Invalid credentials. Check email or sign up!");
         }
       } else if (authModalTab === "signup") {
-        if (!name) {
+        if (!name.trim()) {
           setError("Please provide your name.");
           setIsSubmitting(false);
           return;
         }
-        const success = await signup(name, email, role, password || "password");
+        const success = await signup(name.trim(), trimmedEmail, role, password);
         if (success) {
           resetFields();
         } else {

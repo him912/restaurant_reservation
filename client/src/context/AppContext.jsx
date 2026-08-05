@@ -205,10 +205,15 @@ export const AppProvider = ({ children }) => {
 
       const payload = result.data || {};
       const userEmail = payload.email || email.toLowerCase().trim();
-      const role = payload.role || "customer";
+      const role = normalizeRole(payload.role || "customer");
       const name =
         payload.username || payload.name || deriveNameFromEmail(userEmail);
-      setCurrentUser({ name, email: userEmail, role });
+      setCurrentUser({
+        id: payload.id,
+        name,
+        email: userEmail,
+        role,
+      });
       showToast(result.message || `Welcome back, ${name}!`, "success");
       const profileData = await api.getProfile();
       setIsAuthModalOpen(false);

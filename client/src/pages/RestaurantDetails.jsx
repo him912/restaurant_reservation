@@ -27,6 +27,36 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+const DISPLAY_TIME_SLOTS = [
+  '12:00 PM',
+  '1:30 PM',
+  '5:00 PM',
+  '6:30 PM',
+  '7:30 PM',
+  '8:30 PM',
+  '9:30 PM',
+];
+
+const displayTimeToApi = (time) => {
+  const raw = String(time).trim();
+  const match = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+  if (!match) return raw;
+
+  let hours = Number(match[1]);
+  const minutes = match[2] ? Number(match[2]) : 0;
+  const meridiem = match[3].toUpperCase();
+
+  if (meridiem === 'PM' && hours < 12) hours += 12;
+  if (meridiem === 'AM' && hours === 12) hours = 0;
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
+const isValidPhone = (value) => {
+  const digits = String(value).replace(/\D/g, '');
+  return digits.length >= 10 && digits.length <= 15;
+};
+
 export const RestaurantDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -57,6 +87,7 @@ export const RestaurantDetails = () => {
   const [responseDrafts, setResponseDrafts] = useState({});
   const [editingResponse, setEditingResponse] = useState(null);
   const [submittingResponse, setSubmittingResponse] = useState(false);
+  const [reservedByTime, setReservedByTime] = useState({});
 
   // Fetch individual restaurant details
   useEffect(() => {
@@ -82,6 +113,20 @@ export const RestaurantDetails = () => {
     fetchDetails();
   }, [id, navigate, showToast]);
 
+  useEffect(() => {
+    const loadAvailability = async () => {
+      if (!id || !bookingDate) {
+        setReservedByTime({});
+        return;
+      }
+
+      const availability = await api.getRestaurantAvailability(id, bookingDate);
+      setReservedByTime(availability?.reservedByTime || {});
+    };
+
+    loadAvailability();
+  }, [id, bookingDate]);
+
   // Restrict calendar selector to today or future
   const todayDateStr = useMemo(() => {
     const t = new Date();
@@ -91,18 +136,25 @@ export const RestaurantDetails = () => {
     return `${y}-${m}-${d}`;
   }, []);
 
-  // Preset time slots (with simulated occupancy)
   const timeSlots = useMemo(() => {
-    return [
-      { time: '12:00 PM', isFull: false },
-      { time: '1:30 PM', isFull: true }, // Simulated booked slot
-      { time: '5:00 PM', isFull: false },
-      { time: '6:30 PM', isFull: false },
-      { time: '7:30 PM', isFull: false },
-      { time: '8:30 PM', isFull: true }, // Simulated booked slot
-      { time: '9:30 PM', isFull: false }
-    ];
-  }, []);
+    const capacity = Number(restaurant?.capacity) || 20;
+    return DISPLAY_TIME_SLOTS.map((time) => {
+      const apiTime = displayTimeToApi(time);
+      const reservedSeats = Number(reservedByTime[apiTime] || 0);
+      return {
+        time,
+        isFull: reservedSeats + Number(bookingGuests) > capacity,
+      };
+    });
+  }, [reservedByTime, bookingGuests, restaurant?.capacity]);
+
+  useEffect(() => {
+    if (!bookingTime) return;
+    const selectedSlot = timeSlots.find((slot) => slot.time === bookingTime);
+    if (selectedSlot?.isFull) {
+      setBookingTime('');
+    }
+  }, [bookingTime, timeSlots]);
 
   // Filter categorised menu items from restaurant menu data
   const menuMap = useMemo(() => {
@@ -128,16 +180,43 @@ export const RestaurantDetails = () => {
     e.preventDefault();
     if (!restaurant) return;
 
+    if (!currentUser) {
+      showToast('Please log in to make a reservation.', 'error');
+      openAuthModal('login');
+      return;
+    }
+
     if (!bookingDate) {
       showToast('Please select a dining date.', 'error');
+      return;
+    }
+    if (bookingDate < todayDateStr) {
+      showToast('Please choose today or a future date.', 'error');
       return;
     }
     if (!bookingTime) {
       showToast('Please select a time slot.', 'error');
       return;
     }
-    if (!customerPhone) {
+    const selectedSlot = timeSlots.find((slot) => slot.time === bookingTime);
+    if (selectedSlot?.isFull) {
+      showToast('That time slot is full. Please choose another.', 'error');
+      return;
+    }
+    if (!customerPhone.trim()) {
       showToast('Please enter your contact phone number.', 'error');
+      return;
+    }
+    if (!isValidPhone(customerPhone)) {
+      showToast('Please enter a valid phone number (at least 10 digits).', 'error');
+      return;
+    }
+    if (!bookingGuests || bookingGuests < 1) {
+      showToast('Please select at least 1 guest.', 'error');
+      return;
+    }
+    if (bookingGuests > (restaurant.capacity || 20)) {
+      showToast(`This restaurant only seats up to ${restaurant.capacity || 20} guests.`, 'error');
       return;
     }
 
@@ -219,14 +298,8 @@ export const RestaurantDetails = () => {
   };
 
   const canManageReview = (review) => {
-    if (!currentUser) return false;
-    return (
-      currentUser.email === review.reviewerEmail ||
-      currentUser.name === review.reviewerName ||
-      currentUser._id === review.userId?._id ||
-      currentUser.id === review.userId?.id ||
-      currentUser.id === review.userId
-    );
+    if (!currentUser?.id || !review?.authorUserId) return false;
+    return String(currentUser.id) === String(review.authorUserId);
   };
 
   const isRestaurantOwner = Boolean(
@@ -294,12 +367,22 @@ export const RestaurantDetails = () => {
     e.preventDefault();
     if (!restaurant) return;
 
-    if (!reviewTitle.trim()) {
-      showToast('Please write a title for your review.', 'error');
+    if (!currentUser) {
+      showToast('Please log in to submit a review.', 'error');
+      openAuthModal('login');
       return;
     }
-    if (!reviewContent.trim()) {
-      showToast('Please write the body details for your review.', 'error');
+
+    if (!reviewTitle.trim() || reviewTitle.trim().length < 3) {
+      showToast('Please write a review title (at least 3 characters).', 'error');
+      return;
+    }
+    if (!reviewContent.trim() || reviewContent.trim().length < 10) {
+      showToast('Please write a review with at least 10 characters.', 'error');
+      return;
+    }
+    if (reviewRating < 1 || reviewRating > 5) {
+      showToast('Please select a rating between 1 and 5 stars.', 'error');
       return;
     }
 
