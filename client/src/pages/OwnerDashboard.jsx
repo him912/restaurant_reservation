@@ -20,6 +20,8 @@ import {
   DollarSign,
   Star,
   Users,
+  ChevronDown,
+  Plus,
 } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -308,7 +310,7 @@ export const OwnerDashboard = () => {
           id="owner-header-box"
         >
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="w-14 h-14 bg-indigo-650 text-white font-black rounded-2xl flex items-center justify-center text-lg shadow-lg">
+            <div className="w-14 h-14 bg-indigo-600 text-white font-black rounded-2xl flex items-center justify-center text-lg shadow-lg">
               <Sliders size={22} />
             </div>
             <div>
@@ -325,30 +327,56 @@ export const OwnerDashboard = () => {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 w-full sm:w-auto">
-            <div className="flex gap-2 items-center">
-              <label className="text-xs font-semibold uppercase tracking-widest text-slate-300">
+          <div className="flex flex-col gap-3 w-full sm:w-auto min-w-[240px]">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                 Your Restaurants
               </label>
-              <select
-                value={selectedRestaurantId || ""}
-                onChange={(e) => {
-                  setSelectedRestaurantId(e.target.value);
-                  setIsCreateMode(false);
-                }}
-                className="bg-slate-950 border border-slate-700 text-slate-100 rounded-2xl px-3 py-2 text-sm"
-              >
-                {restaurants.map((r) => (
-                  <option key={r.id || r._id} value={r.id || r._id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={
+                    isCreateMode
+                      ? "__create__"
+                      : selectedRestaurantId || ""
+                  }
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "__create__") {
+                      setIsCreateMode(true);
+                      setSelectedRestaurantId(null);
+                      setActiveTab("profile");
+                      return;
+                    }
+                    setSelectedRestaurantId(value);
+                    setIsCreateMode(false);
+                  }}
+                  className="w-full appearance-none bg-slate-950 border border-slate-600 hover:border-indigo-400 focus:border-indigo-500 text-slate-100 rounded-xl pl-4 pr-10 py-2.5 text-sm font-semibold shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition cursor-pointer"
+                  id="owner-restaurant-select"
+                >
+                  {isCreateMode && (
+                    <option value="__create__">+ New Restaurant</option>
+                  )}
+                  {restaurants.length === 0 && !isCreateMode && (
+                    <option value="">No restaurants yet</option>
+                  )}
+                  {restaurants.map((r) => (
+                    <option key={r.id || r._id} value={r.id || r._id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={16}
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+              </div>
             </div>
             <button
+              type="button"
               onClick={() => {
                 setIsCreateMode(true);
                 setSelectedRestaurantId(null);
+                setActiveTab("profile");
                 setNewRestaurantName("");
                 setNewRestaurantDescription("");
                 setNewRestaurantCuisine("");
@@ -358,22 +386,26 @@ export const OwnerDashboard = () => {
                 setNewRestaurantEmail("");
                 setNewRestaurantWebsite("");
                 setNewRestaurantImage("");
+                setNewRestaurantImageFile(null);
                 setNewRestaurantCapacity(20);
                 setNewRestaurantOpeningTime("09:00");
                 setNewRestaurantClosingTime("22:00");
                 setNewRestaurantPriceRange("$$");
                 setNewRestaurantFeatures([]);
+                setNewRestaurantGalleryFiles([]);
               }}
-              className="px-4 py-2 bg-emerald-500 text-white rounded-2xl text-xs font-bold uppercase tracking-wider hover:bg-emerald-600 transition"
+              className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-emerald-600 transition flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-900/30"
               id="owner-add-restaurant-btn"
             >
+              <Plus size={14} />
               Add New Restaurant
             </button>
           </div>
 
           {/* Tab buttons */}
-          <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-850">
+          <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-700">
             <button
+              type="button"
               onClick={() => setActiveTab("bookings")}
               className={`text-xs font-bold px-4 py-2.5 rounded-lg transition cursor-pointer ${
                 activeTab === "bookings"
@@ -385,7 +417,17 @@ export const OwnerDashboard = () => {
               Control Desk
             </button>
             <button
-              onClick={() => setActiveTab("profile")}
+              type="button"
+              onClick={() => {
+                setActiveTab("profile");
+                // Leaving create mode without a selection: restore first restaurant if any
+                if (isCreateMode && restaurants.length > 0 && !selectedRestaurantId) {
+                  // keep create mode if user just opened Add New; form is on profile tab
+                } else if (!restaurant && restaurants.length > 0) {
+                  setSelectedRestaurantId(restaurants[0].id || restaurants[0]._id);
+                  setIsCreateMode(false);
+                }
+              }}
               className={`text-xs font-bold px-4 py-2.5 rounded-lg transition cursor-pointer ${
                 activeTab === "profile"
                   ? "bg-indigo-600 text-white font-extrabold shadow-sm"
@@ -611,7 +653,26 @@ export const OwnerDashboard = () => {
           >
             {/* Form details section container */}
             <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 p-6 md:p-8 shadow-sm" id="profile-editor-box">
-              <h3 className="text-lg font-black text-slate-900 mb-6 pb-4 border-b border-slate-100">Manage Restaurant Details</h3>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
+                <h3 className="text-lg font-black text-slate-900">
+                  {shouldShowCreateForm
+                    ? "Create New Restaurant"
+                    : "Manage Restaurant Details"}
+                </h3>
+                {shouldShowCreateForm && restaurants.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreateMode(false);
+                      const first = restaurants[0];
+                      setSelectedRestaurantId(first.id || first._id);
+                    }}
+                    className="text-xs font-bold text-slate-500 hover:text-indigo-600 uppercase tracking-wider"
+                  >
+                    Cancel create
+                  </button>
+                )}
+              </div>
               
               <form
                 onSubmit={isCreateMode ? handleCreateRestaurantSubmit : handleProfileSubmit}
@@ -1095,7 +1156,10 @@ export const OwnerDashboard = () => {
                 </div>
               )}
 
-              {restaurant.menuItems.map((item) => {
+              {restaurant &&
+                !isCreateMode &&
+                Array.isArray(restaurant.menuItems) &&
+                restaurant.menuItems.map((item) => {
                 const itemId = item.id || item._id;
                 const isEditing = editingMenuItemId === String(itemId);
                 const previewImage = isEditing
