@@ -25,6 +25,8 @@ import {
   Send,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { PaymentStatusBadge } from "../components/PaymentStatusBadge";
+import { usePolling } from "../hooks/usePolling";
 
 export const AdminPanel = () => {
   const {
@@ -120,6 +122,27 @@ export const AdminPanel = () => {
     fetchAdminReservations,
     isAdminAuthenticated,
   ]);
+
+  const reloadAdminReservations = React.useCallback(async () => {
+    if (!isAdminAuthenticated) return;
+    const statusParam =
+      reservationFilterStatus === "all" ? null : reservationFilterStatus;
+    await fetchAdminReservations(statusParam);
+  }, [
+    fetchAdminReservations,
+    isAdminAuthenticated,
+    reservationFilterStatus,
+  ]);
+
+  usePolling(
+    () => {
+      reloadAdminReservations().catch((err) =>
+        console.error("Failed to refresh reservations:", err),
+      );
+    },
+    15000,
+    activeTab === "reservations" && isAdminAuthenticated,
+  );
 
   // Fetch reviews when Reviews tab is active or rating filter changes
   useEffect(() => {
@@ -1000,7 +1023,13 @@ export const AdminPanel = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              <PaymentStatusBadge
+                                paymentStatus={res.paymentStatus}
+                                paymentAmount={res.paymentAmount}
+                                paymentCurrency={res.paymentCurrency}
+                                theme="dark"
+                              />
                               {res.status === "pending" && (
                                 <button
                                   onClick={() => handleAcceptReservation(res.id)}

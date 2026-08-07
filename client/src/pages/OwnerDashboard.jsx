@@ -23,7 +23,9 @@ import {
   ChevronDown,
   Plus,
 } from "lucide-react";
-import { formatMenuPrice, formatMoney } from "../utils/currency";
+import { formatMenuPrice } from "../utils/currency";
+import { PaymentStatusBadge } from "../components/PaymentStatusBadge";
+import { usePolling } from "../hooks/usePolling";
 import { motion } from "motion/react";
 
 export const OwnerDashboard = () => {
@@ -100,6 +102,20 @@ export const OwnerDashboard = () => {
     };
     loadOwnerBookings();
   }, [selectedRestaurantId, isCreateMode, fetchOwnerReservations]);
+
+  const reloadOwnerBookings = React.useCallback(async () => {
+    await fetchOwnerReservations(isCreateMode ? null : selectedRestaurantId || null);
+  }, [fetchOwnerReservations, isCreateMode, selectedRestaurantId]);
+
+  usePolling(
+    () => {
+      reloadOwnerBookings().catch((err) =>
+        console.error("Failed to refresh owner reservations:", err),
+      );
+    },
+    15000,
+    true,
+  );
 
   const restaurant = useMemo(() => {
     if (isCreateMode) return null;
@@ -624,37 +640,29 @@ export const OwnerDashboard = () => {
 
                         {/* Status elements */}
                         <td className="p-4">
-                          <div className="flex flex-col gap-1">
-                            <span
-                              className={`px-3 py-1 rounded-full font-extrabold text-[10px] uppercase tracking-wider border w-max ${
-                                res.status === "confirmed"
-                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                  : res.status === "cancelled"
-                                    ? "bg-slate-100 text-slate-400 border-slate-200"
-                                    : "bg-amber-50 text-amber-800 border-amber-200"
-                              }`}
-                            >
-                              {res.status === "pending"
-                                ? "awaiting approval"
-                                : res.status}
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded-full font-bold text-[9px] uppercase tracking-wider border w-max ${
-                                res.paymentStatus === "paid"
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                  : "bg-rose-50 text-rose-600 border-rose-100"
-                              }`}
-                            >
-                              {res.paymentStatus === "paid"
-                                ? `paid ${formatMoney(res.paymentAmount, res.paymentCurrency)}`
-                                : res.paymentStatus || "unpaid"}
-                            </span>
-                          </div>
+                          <span
+                            className={`px-3 py-1 rounded-full font-extrabold text-[10px] uppercase tracking-wider border w-max ${
+                              res.status === "confirmed"
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                : res.status === "cancelled"
+                                  ? "bg-slate-100 text-slate-400 border-slate-200"
+                                  : "bg-amber-50 text-amber-800 border-amber-200"
+                            }`}
+                          >
+                            {res.status === "pending"
+                              ? "awaiting approval"
+                              : res.status}
+                          </span>
                         </td>
 
                         {/* Control Actions buttons */}
                         <td className="p-4 pr-6 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            <PaymentStatusBadge
+                              paymentStatus={res.paymentStatus}
+                              paymentAmount={res.paymentAmount}
+                              paymentCurrency={res.paymentCurrency}
+                            />
                             {res.status === "pending" && (
                               <button
                                 type="button"
