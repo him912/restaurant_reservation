@@ -26,6 +26,7 @@ import {
 import { formatMenuPrice } from "../utils/currency";
 import { PaymentStatusBadge } from "../components/PaymentStatusBadge";
 import { usePolling } from "../hooks/usePolling";
+import { sortReservationsByCreatedAt } from "../utils/sortReservations";
 import { motion } from "motion/react";
 
 export const OwnerDashboard = () => {
@@ -130,12 +131,15 @@ export const OwnerDashboard = () => {
 
   // Bookings for the selected restaurant (or all owned venues)
   const ownerBookings = useMemo(() => {
-    if (!selectedRestaurantId || isCreateMode) return ownerReservations;
-    return ownerReservations.filter(
-      (r) =>
-        String(r.restaurantId) === String(selectedRestaurantId) ||
-        !selectedRestaurantId,
-    );
+    let list = ownerReservations;
+    if (selectedRestaurantId && !isCreateMode) {
+      list = ownerReservations.filter(
+        (r) =>
+          String(r.restaurantId) === String(selectedRestaurantId) ||
+          !selectedRestaurantId,
+      );
+    }
+    return sortReservationsByCreatedAt(list);
   }, [ownerReservations, selectedRestaurantId, isCreateMode]);
 
   const shouldShowCreateForm = isCreateMode || (!restaurant && restaurants.length === 0);

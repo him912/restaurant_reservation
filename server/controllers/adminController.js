@@ -269,7 +269,7 @@ exports.getAllReservationsAdmin = async (req, res) => {
     const reservations = await Reservation.find(query)
       .populate("restaurantId", "name")
       .populate("userId", "username email")
-      .sort({ date: -1 })
+      .sort({ createdAt: -1 })
       .skip((pageNumber - 1) * limitNumber)
       .limit(limitNumber);
 

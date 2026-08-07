@@ -27,6 +27,7 @@ import {
 import { motion } from "motion/react";
 import { PaymentStatusBadge } from "../components/PaymentStatusBadge";
 import { usePolling } from "../hooks/usePolling";
+import { sortReservationsByCreatedAt } from "../utils/sortReservations";
 
 export const AdminPanel = () => {
   const {
@@ -234,7 +235,7 @@ export const AdminPanel = () => {
   }, [adminReservations]);
 
   const filteredReservations = useMemo(() => {
-    return adminReservations.filter((r) => {
+    const filtered = adminReservations.filter((r) => {
       const query = reservationSearchQuery.toLowerCase();
       const matchesSearch =
         r.customerName?.toLowerCase().includes(query) ||
@@ -246,6 +247,8 @@ export const AdminPanel = () => {
       }
       return matchesSearch && r.status === reservationFilterStatus;
     });
+
+    return sortReservationsByCreatedAt(filtered);
   }, [adminReservations, reservationSearchQuery, reservationFilterStatus]);
 
   const formatDate = (dateStr) => {

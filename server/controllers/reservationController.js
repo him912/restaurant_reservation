@@ -386,7 +386,7 @@ exports.getOwnerReservations = async (req, res) => {
     const reservations = await Reservation.find(query)
       .populate("restaurantId", "name cuisineType restaurantImage")
       .populate("userId", "username email")
-      .sort({ date: -1, time: 1 });
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,

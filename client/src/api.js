@@ -129,6 +129,10 @@ const normalizeReservation = (reservation) => {
     paidAt: reservation.paidAt || null,
     specialRequests: reservation.specialRequests || "",
     tableNumber: reservation.tableNumber || null,
+    createdAt:
+      reservation.createdAt instanceof Date
+        ? reservation.createdAt.toISOString()
+        : reservation.createdAt || "",
     date:
       typeof reservation.date === "string"
         ? reservation.date
