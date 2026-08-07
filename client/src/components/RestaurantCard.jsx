@@ -12,6 +12,12 @@ import { MapPin, ArrowRight } from "lucide-react";
 export const RestaurantCard = ({ restaurant }) => {
   const navigate = useNavigate();
   const { currentUser, openAuthModal } = useApp();
+
+  const isStaffUser =
+    currentUser?.role === "admin" ||
+    currentUser?.role === "restaurant_owner" ||
+    currentUser?.role === "owner";
+
   // Convert Pricing symbol into visible tiers
   const renderPrice = (p) => {
     return (
@@ -30,9 +36,16 @@ export const RestaurantCard = ({ restaurant }) => {
     ? restaurant.cuisineType[0]
     : restaurant.cuisineType || "Cuisine";
 
-  const handleBookClick = (event) => {
+  const handleCardAction = (event) => {
+    event.preventDefault();
+
+    // Admins and owners can only view the restaurant, not book
+    if (isStaffUser) {
+      navigate(`/restaurant/${restaurant._id || restaurant.id}`);
+      return;
+    }
+
     if (!currentUser) {
-      event.preventDefault();
       openAuthModal("login");
       return;
     }
@@ -103,15 +116,27 @@ export const RestaurantCard = ({ restaurant }) => {
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
             Capacity: {restaurant.capacity || "N/A"}
           </span>
-          <button
-            type="button"
-            onClick={handleBookClick}
-            className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 group-hover:gap-1.5 transition-all text-right py-2 px-3.5 rounded-xl active:scale-97 cursor-pointer"
-            id={`book-trigger-${restaurant._id || restaurant.id}`}
-          >
-            <span>Book Table</span>
-            <ArrowRight size={13} className="text-indigo-600" />
-          </button>
+          {isStaffUser ? (
+            <button
+              type="button"
+              onClick={handleCardAction}
+              className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-50 transition-all text-right py-2 px-3.5 rounded-xl cursor-pointer"
+              id={`view-trigger-${restaurant._id || restaurant.id}`}
+            >
+              <span>View Details</span>
+              <ArrowRight size={13} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleCardAction}
+              className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 group-hover:gap-1.5 transition-all text-right py-2 px-3.5 rounded-xl active:scale-97 cursor-pointer"
+              id={`book-trigger-${restaurant._id || restaurant.id}`}
+            >
+              <span>Book Table</span>
+              <ArrowRight size={13} className="text-indigo-600" />
+            </button>
+          )}
         </div>
       </div>
     </div>

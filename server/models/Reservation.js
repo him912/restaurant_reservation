@@ -34,6 +34,44 @@ const reservationSchema = new mongoose.Schema(
       enum: ["pending", "reserved", "cancelled"],
       default: "pending",
     },
+    paymentStatus: {
+      type: String,
+      enum: ["unpaid", "pending", "paid", "failed", "refunded"],
+      default: "unpaid",
+    },
+    paymentAmount: {
+      type: Number,
+      default: 0, // amount in paise/cents (minor units)
+    },
+    paymentCurrency: {
+      type: String,
+      default: "inr",
+    },
+    paymentProvider: {
+      type: String,
+      enum: ["", "razorpay", "stripe", "demo"],
+      default: "",
+    },
+    razorpayOrderId: {
+      type: String,
+      default: "",
+    },
+    razorpayPaymentId: {
+      type: String,
+      default: "",
+    },
+    stripeSessionId: {
+      type: String,
+      default: "",
+    },
+    stripePaymentIntentId: {
+      type: String,
+      default: "",
+    },
+    paidAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

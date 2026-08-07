@@ -123,6 +123,10 @@ const normalizeReservation = (reservation) => {
       reservation.status === "reserved"
         ? "confirmed"
         : reservation.status || "pending",
+    paymentStatus: reservation.paymentStatus || "unpaid",
+    paymentAmount: Number(reservation.paymentAmount || 0),
+    paymentCurrency: reservation.paymentCurrency || "inr",
+    paidAt: reservation.paidAt || null,
     specialRequests: reservation.specialRequests || "",
     tableNumber: reservation.tableNumber || null,
     date:
@@ -795,6 +799,7 @@ export const api = {
         guests: res.guests || res.partySize || created.guests,
         partySize: res.partySize ?? res.guests ?? created.partySize ?? 1,
         specialRequests: res.specialRequests || created.specialRequests,
+        checkoutUrl: response.data?.checkoutUrl || null,
       };
     } catch (err) {
       console.error("Failed to create reservation via backend:", err);
@@ -809,6 +814,7 @@ export const api = {
         restaurantImage: res.restaurantImage || res.image || "",
         id: `res-${Math.floor(1000 + Math.random() * 9000)}`,
         status: "pending",
+        paymentStatus: "unpaid",
         createdAt: new Date().toISOString(),
         tableNumber: Math.floor(1 + Math.random() * 20),
       };
@@ -819,6 +825,57 @@ export const api = {
         JSON.stringify(list),
       );
       return newRes;
+    }
+  },
+
+  createPaymentCheckout: async (reservationId) => {
+    try {
+      const response = await axios.post(
+        `${API_URL}/payments/create-checkout-session`,
+        { reservationId },
+        getAuthConfig(),
+      );
+      return response.data?.data || response.data;
+    } catch (err) {
+      console.error("Failed to create payment checkout:", err);
+      throw err;
+    }
+  },
+
+  verifyPayment: async (reservationId) => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/payments/verify/${reservationId}`,
+        getAuthConfig(),
+      );
+      return normalizeReservation(response.data?.data || response.data);
+    } catch (err) {
+      console.error("Failed to verify payment:", err);
+      throw err;
+    }
+  },
+
+  verifyRazorpayPayment: async (payload) => {
+    try {
+      const response = await axios.post(
+        `${API_URL}/payments/verify-razorpay`,
+        payload,
+        getAuthConfig(),
+      );
+      return normalizeReservation(response.data?.data || response.data);
+    } catch (err) {
+      console.error("Failed to verify Razorpay payment:", err);
+      throw err;
+    }
+  },
+
+  getPaymentConfig: async () => {
+    try {
+      const response = await axios.get(`${API_URL}/payments/config`);
+      return response.data?.data || null;
+    } catch (err) {
+      console.error("Failed to fetch payment config:", err);
+      return null;
     }
   },
 

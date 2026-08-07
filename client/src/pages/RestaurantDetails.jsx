@@ -4,11 +4,13 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { RatingStars } from '../components/RatingStars';
 import { SuccessModal } from '../components/SuccessModal';
 import { api } from '../api';
+import { formatDepositTotal, formatMenuPrice } from '../utils/currency';
+import { openRazorpayCheckout } from '../utils/razorpayCheckout';
 import {
   ArrowLeft,
   MapPin,
@@ -60,13 +62,21 @@ const isValidPhone = (value) => {
 export const RestaurantDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { currentUser, addNewReservation, showToast, openAuthModal } = useApp();
+
+  const isStaffUser =
+    currentUser?.role === "admin" ||
+    currentUser?.role === "restaurant_owner" ||
+    currentUser?.role === "owner";
+  const canBookTable = Boolean(currentUser) && !isStaffUser;
 
   // Local Component States
   const [restaurant, setRestaurant] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeMenuCategory, setActiveMenuCategory] = useState('Mains');
+  const [paymentConfig, setPaymentConfig] = useState(null);
 
   // Reservation form states
   const [bookingDate, setBookingDate] = useState('');
@@ -111,7 +121,59 @@ export const RestaurantDetails = () => {
       }
     };
     fetchDetails();
+    api.getPaymentConfig().then(setPaymentConfig).catch(() => {});
   }, [id, navigate, showToast]);
+
+  // Handle Stripe Checkout return (?payment=success|cancelled&reservationId=...)
+  useEffect(() => {
+    const paymentState = searchParams.get('payment');
+    const reservationId = searchParams.get('reservationId');
+    if (!paymentState || !reservationId || !currentUser) return;
+
+    const handlePaymentReturn = async () => {
+      try {
+        if (paymentState === 'success') {
+          const verified = await api.verifyPayment(reservationId);
+          const enriched = {
+            ...verified,
+            restaurantName: verified.restaurantName || restaurant?.name || '',
+            restaurantCuisine:
+              verified.restaurantCuisine ||
+              restaurant?.cuisineType?.[0] ||
+              restaurant?.cuisine ||
+              '',
+            restaurantImage:
+              verified.restaurantImage ||
+              restaurant?.restaurantImage ||
+              restaurant?.image ||
+              '',
+            customerName: currentUser.name,
+            customerEmail: currentUser.email,
+            guests: verified.partySize || verified.guests,
+          };
+          setCreatedReservation(enriched);
+          showToast(
+            verified.paymentStatus === 'paid'
+              ? 'Payment successful — reservation submitted for approval.'
+              : 'Reservation saved. Payment status is still updating.',
+            'success',
+          );
+        } else if (paymentState === 'cancelled') {
+          showToast(
+            'Payment cancelled. Your reservation is unpaid and may not be confirmed.',
+            'error',
+          );
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Could not verify payment status.', 'error');
+      } finally {
+        setSearchParams({}, { replace: true });
+      }
+    };
+
+    handlePaymentReturn();
+  }, [searchParams, currentUser, restaurant, showToast, setSearchParams]);
 
   useEffect(() => {
     const loadAvailability = async () => {
@@ -180,6 +242,11 @@ export const RestaurantDetails = () => {
     e.preventDefault();
     if (!restaurant) return;
 
+    if (isStaffUser) {
+      showToast('Admins and restaurant owners cannot make reservations.', 'error');
+      return;
+    }
+
     if (!currentUser) {
       showToast('Please log in to make a reservation.', 'error');
       openAuthModal('login');
@@ -238,11 +305,61 @@ export const RestaurantDetails = () => {
       };
 
       const result = await addNewReservation(bookingData);
+
+      if (result?.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+
+      if (result?.razorpayOrder && (result.paymentKeyId || paymentConfig?.keyId)) {
+        const verified = await openRazorpayCheckout({
+          keyId: result.paymentKeyId || paymentConfig.keyId,
+          order: result.razorpayOrder,
+          reservationId: result.id,
+          user: {
+            ...currentUser,
+            phone: customerPhone,
+          },
+          restaurantName: restaurant.name,
+          verifyPayment: api.verifyRazorpayPayment,
+          onSuccess: (paidReservation) => {
+            const enriched = {
+              ...result,
+              ...paidReservation,
+              restaurantName: restaurant.name,
+              restaurantCuisine:
+                restaurant.cuisineType?.[0] || restaurant.cuisine || '',
+              restaurantImage: restaurant.restaurantImage || restaurant.image || '',
+              customerName: currentUser.name,
+              customerEmail: currentUser.email,
+              guests: result.guests || result.partySize,
+            };
+            setCreatedReservation(enriched);
+            showToast(
+              'Payment successful — reservation submitted for approval.',
+              'success',
+            );
+          },
+          onDismiss: () => {
+            showToast(
+              'Payment cancelled. Your reservation is unpaid and may not be confirmed.',
+              'error',
+            );
+          },
+        });
+
+        if (!verified) {
+          setCreatedReservation(result);
+        }
+        return;
+      }
+
       setCreatedReservation(result);
       
       // Reset choices
       setBookingTime('');
       setSpecialRequests('');
+      setCustomerPhone('');
     } catch (err) {
       console.error(err);
     } finally {
@@ -608,7 +725,7 @@ export const RestaurantDetails = () => {
                                 </span>
                               )}
                             </h4>
-                            <span className="font-mono text-zinc-900 font-extrabold text-sm">${item.price}</span>
+                            <span className="font-mono text-zinc-900 font-extrabold text-sm">{formatMenuPrice(item.price, paymentConfig?.currency)}</span>
                           </div>
                           <p className="text-zinc-505 text-xs leading-relaxed font-semibold">{item.description}</p>
                         </div>
@@ -908,7 +1025,21 @@ export const RestaurantDetails = () => {
                 <span>Book Table Seatings</span>
               </h3>
 
-              {currentUser ? (
+              {isStaffUser ? (
+                <div className="py-8 text-center" id="booking-staff-blocked">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center mx-auto text-amber-400 mb-4 border border-slate-700">
+                    <Lock size={20} />
+                  </div>
+                  <h4 className="text-sm font-black text-white tracking-wide uppercase">
+                    Booking Unavailable
+                  </h4>
+                  <p className="text-slate-400 text-xs my-3 max-w-[240px] mx-auto leading-relaxed font-semibold">
+                    {currentUser.role === "admin"
+                      ? "Admin accounts cannot make table reservations. Use a customer account to book."
+                      : "Restaurant owner accounts cannot make table reservations. Use a customer account to book."}
+                  </p>
+                </div>
+              ) : currentUser ? (
                 <form onSubmit={handleBookingSubmit} className="space-y-4">
                   {/* Pre-fill User Card Display */}
                   <div className="bg-slate-955/40 border border-slate-855 rounded-2xl p-3.5 flex items-center gap-3 bg-indigo-950/15">
@@ -1032,9 +1163,25 @@ export const RestaurantDetails = () => {
                       className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs tracking-wider rounded-xl hover:shadow-lg hover:shadow-indigo-950/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                       id="booking-submit-btn"
                     >
-                      <span>SCHEDULE DINING RESERVATION</span>
+                      <span>
+                        {paymentConfig?.enabled
+                          ? `PAY DEPOSIT & BOOK (${formatDepositTotal(
+                              paymentConfig.depositPerGuestMinorUnits ||
+                                paymentConfig.depositPerGuestCents,
+                              bookingGuests,
+                              paymentConfig.currency,
+                            )})`
+                          : 'SCHEDULE DINING RESERVATION'}
+                      </span>
                       {bookingLoading && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
                     </button>
+                    {paymentConfig && (
+                      <p className="text-[10px] text-slate-500 text-center font-semibold leading-relaxed">
+                        {paymentConfig.enabled
+                          ? `Secure Razorpay checkout · ${paymentConfig.depositPerGuestDisplay || formatDepositTotal(paymentConfig.depositPerGuestMinorUnits || paymentConfig.depositPerGuestCents, 1, paymentConfig.currency)} deposit per guest`
+                          : 'Demo payment mode is active (Razorpay keys not configured on server)'}
+                      </p>
+                    )}
                   </div>
                 </form>
               ) : (

@@ -488,12 +488,77 @@ export const AppProvider = ({ children }) => {
     try {
       const created = await api.createReservation(res);
       setReservations((prev) => [created, ...prev]);
-      showToast("Reservation submitted — awaiting approval", "success");
-      return created;
+
+      let payment = null;
+      try {
+        payment = await api.createPaymentCheckout(created.id);
+        if (payment?.reservation) {
+          const paidReservation = {
+            ...created,
+            ...normalizePaymentFields(payment.reservation),
+          };
+          setReservations((prev) =>
+            prev.map((r) => (r.id === created.id ? paidReservation : r)),
+          );
+        }
+      } catch (paymentErr) {
+        console.error("Payment checkout failed:", paymentErr);
+        showToast(
+          paymentErr?.response?.data?.message ||
+            "Reservation created, but payment could not be started.",
+          "error",
+        );
+      }
+
+      if (payment?.checkoutUrl) {
+        showToast("Redirecting to secure payment…", "info");
+      } else if (payment?.alreadyPaid || payment?.demoMode) {
+        showToast(
+          payment?.demoMode
+            ? "Reservation submitted — deposit recorded (demo payment mode)"
+            : "Reservation submitted — deposit paid",
+          "success",
+        );
+      } else if (payment?.razorpayOrder) {
+        showToast("Complete payment in the Razorpay window.", "info");
+      } else {
+        showToast("Reservation submitted — awaiting approval", "success");
+      }
+
+      return {
+        ...created,
+        ...(payment?.reservation
+          ? normalizePaymentFields(payment.reservation)
+          : {}),
+        checkoutUrl: payment?.checkoutUrl || null,
+        razorpayOrder: payment?.razorpayOrder || null,
+        paymentProvider: payment?.provider || null,
+        paymentKeyId: payment?.keyId || null,
+        paymentDemoMode: Boolean(payment?.demoMode),
+        paymentAmount: payment?.amount || created.paymentAmount || 0,
+      };
     } catch (err) {
-      showToast(err.message || "Failed to make reservation", "error");
+      showToast(
+        err?.response?.data?.message || err.message || "Failed to make reservation",
+        "error",
+      );
       throw err;
     }
+  };
+
+  const normalizePaymentFields = (reservation) => {
+    if (!reservation) return {};
+    return {
+      paymentStatus: reservation.paymentStatus || "unpaid",
+      paymentAmount: Number(reservation.paymentAmount || 0),
+      paymentCurrency: reservation.paymentCurrency || "inr",
+      paidAt: reservation.paidAt || null,
+      status:
+        reservation.status === "reserved"
+          ? "confirmed"
+          : reservation.status || "pending",
+      id: reservation._id || reservation.id,
+    };
   };
 
   const cancelUserReservation = async (id) => {

@@ -11,7 +11,6 @@ dotenv.config();
 connectDB();
 
 const app = express();
-app.use(express.json());
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -44,6 +43,15 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// Stripe webhook needs the raw body — mount before express.json()
+app.post(
+  "/api/payments/webhook",
+  express.raw({ type: "application/json" }),
+  require("./controllers/paymentController").stripeWebhook,
+);
+
+app.use(express.json());
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: corsOptions,
@@ -59,6 +67,7 @@ app.use("/api/reservations", require("./routes/reservationRoute"));
 app.use("/api/reviews", require("./routes/reviewRoute"));
 app.use("/api/upload", require("./routes/uploadRoute"));
 app.use("/api/admin", require("./routes/adminRoute"));
+app.use("/api/payments", require("./routes/paymentRoute"));
 
 // Setup Socket.io handlers
 setupAvailabilitySocket(io);

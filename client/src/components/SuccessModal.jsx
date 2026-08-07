@@ -6,6 +6,7 @@
 import React, { useEffect } from 'react';
 import { Check, Calendar, Clock, Users, ArrowRight, Table, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { formatMoney } from '../utils/currency';
 
 export const SuccessModal = ({ reservation, onClose }) => {
   useEffect(() => {
@@ -59,9 +60,15 @@ export const SuccessModal = ({ reservation, onClose }) => {
                 <Check size={28} className="text-white" />
               </div>
               <h3 id="success-modal-title" className="text-xl font-bold tracking-tight text-black">
-                Reservation Confirmed!
+                {reservation.paymentStatus === 'paid'
+                  ? 'Reservation Confirmed!'
+                  : 'Reservation Submitted!'}
               </h3>
-              <p className="text-slate-500 text-xs mt-1">Your dining table is locked and loaded.</p>
+              <p className="text-slate-500 text-xs mt-1">
+                {reservation.paymentStatus === 'paid'
+                  ? 'Deposit paid — your table request is awaiting restaurant approval.'
+                  : 'Your dining table request is locked and loaded.'}
+              </p>
             </div>
 
             <div className="p-6">
@@ -134,6 +141,20 @@ export const SuccessModal = ({ reservation, onClose }) => {
                 <div className="flex justify-between items-center py-1">
                   <span className="text-slate-500">Contact Email</span>
                   <span className="text-slate-800 break-all ml-4 text-right font-semibold">{reservation.customerEmail}</span>
+                </div>
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-slate-500">Payment</span>
+                  <span
+                    className={`font-extrabold ${
+                      reservation.paymentStatus === 'paid'
+                        ? 'text-emerald-700'
+                        : 'text-amber-700'
+                    }`}
+                  >
+                    {reservation.paymentStatus === 'paid'
+                      ? `Paid ${formatMoney(reservation.paymentAmount, reservation.paymentCurrency)} deposit`
+                      : (reservation.paymentStatus || 'unpaid').toUpperCase()}
+                  </span>
                 </div>
                 {reservation.specialRequests && (
                   <div className="mt-3 pt-3 border-t border-slate-200">

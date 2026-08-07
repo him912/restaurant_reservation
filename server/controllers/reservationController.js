@@ -30,7 +30,15 @@ exports.createReservation = async (req, res) => {
   try {
     const { restaurantId, date, time, partySize } = req.body;
     const userId = req.user?.id;
+    const userRole = req.user?.role;
     const io = req.app.get("io");
+
+    if (userRole === "admin" || userRole === "restaurant_owner") {
+      return res.status(403).json({
+        success: false,
+        message: "Admins and restaurant owners cannot make reservations",
+      });
+    }
 
     if (!restaurantId || !date || !time || !partySize) {
       return res.status(400).json({
@@ -78,6 +86,8 @@ exports.createReservation = async (req, res) => {
       time,
       partySize,
       status: "pending",
+      paymentStatus: "unpaid",
+      paymentAmount: 0,
     });
 
     // Broadcast availability update to all subscribed clients

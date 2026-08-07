@@ -17,12 +17,13 @@ import {
   X,
   RefreshCw,
   Sliders,
-  DollarSign,
+  IndianRupee,
   Star,
   Users,
   ChevronDown,
   Plus,
 } from "lucide-react";
+import { formatMenuPrice, formatMoney } from "../utils/currency";
 import { motion } from "motion/react";
 
 export const OwnerDashboard = () => {
@@ -171,11 +172,11 @@ export const OwnerDashboard = () => {
     (r) => r.status === "cancelled",
   ).length;
 
-  // Revenue estimation: average dining covers are $110/guest for confirmed bookings
+  // Revenue estimation: average dining covers are ₹1,500/guest for confirmed bookings
   const estRevenue = useMemo(() => {
     return ownerBookings
       .filter((r) => r.status === "confirmed")
-      .reduce((sum, r) => sum + (r.guests || r.partySize || 0) * 110, 0);
+      .reduce((sum, r) => sum + (r.guests || r.partySize || 0) * 1500, 0);
   }, [ownerBookings]);
 
   // Handle Feature checkboxes toggle
@@ -482,14 +483,14 @@ export const OwnerDashboard = () => {
         >
           <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex items-center gap-3">
             <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 border border-indigo-100">
-              <DollarSign size={18} />
+              <IndianRupee size={18} />
             </div>
             <div>
               <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-none">
                 Est. Revenue
               </span>
               <span className="text-xl font-black text-slate-900 mt-1 block">
-                ${estRevenue.toLocaleString()}
+                ₹{estRevenue.toLocaleString("en-IN")}
               </span>
             </div>
           </div>
@@ -623,19 +624,32 @@ export const OwnerDashboard = () => {
 
                         {/* Status elements */}
                         <td className="p-4">
-                          <span
-                            className={`px-3 py-1 rounded-full font-extrabold text-[10px] uppercase tracking-wider border ${
-                              res.status === "confirmed"
-                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                : res.status === "cancelled"
-                                  ? "bg-slate-100 text-slate-400 border-slate-200"
-                                  : "bg-amber-50 text-amber-800 border-amber-200"
-                            }`}
-                          >
-                            {res.status === "pending"
-                              ? "awaiting approval"
-                              : res.status}
-                          </span>
+                          <div className="flex flex-col gap-1">
+                            <span
+                              className={`px-3 py-1 rounded-full font-extrabold text-[10px] uppercase tracking-wider border w-max ${
+                                res.status === "confirmed"
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                  : res.status === "cancelled"
+                                    ? "bg-slate-100 text-slate-400 border-slate-200"
+                                    : "bg-amber-50 text-amber-800 border-amber-200"
+                              }`}
+                            >
+                              {res.status === "pending"
+                                ? "awaiting approval"
+                                : res.status}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-full font-bold text-[9px] uppercase tracking-wider border w-max ${
+                                res.paymentStatus === "paid"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : "bg-rose-50 text-rose-600 border-rose-100"
+                              }`}
+                            >
+                              {res.paymentStatus === "paid"
+                                ? `paid ${formatMoney(res.paymentAmount, res.paymentCurrency)}`
+                                : res.paymentStatus || "unpaid"}
+                            </span>
+                          </div>
                         </td>
 
                         {/* Control Actions buttons */}
@@ -1370,8 +1384,7 @@ export const OwnerDashboard = () => {
                                 {item.name}
                               </div>
                               <div className="text-xs text-slate-500">
-                                {item.category} • $
-                                {Number(item.price).toFixed(2)}
+                                {item.category} • {formatMenuPrice(item.price)}
                               </div>
                             </div>
                             <span
