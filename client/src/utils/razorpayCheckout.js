@@ -42,6 +42,7 @@ export const openRazorpayCheckout = async ({
   restaurantName,
   onSuccess,
   onDismiss,
+  onPaymentFailed,
   verifyPayment,
 }) => {
   const Razorpay = await loadRazorpayScript();
@@ -71,6 +72,7 @@ export const openRazorpayCheckout = async ({
           onSuccess?.(verified);
           resolve(verified);
         } catch (error) {
+          onPaymentFailed?.(error);
           reject(error);
         }
       },
@@ -84,7 +86,7 @@ export const openRazorpayCheckout = async ({
 
     const checkout = new Razorpay(options);
     checkout.on("payment.failed", () => {
-      onDismiss?.();
+      onPaymentFailed?.();
       resolve(null);
     });
     checkout.open();

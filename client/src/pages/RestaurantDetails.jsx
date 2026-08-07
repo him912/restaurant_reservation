@@ -10,7 +10,7 @@ import { RatingStars } from '../components/RatingStars';
 import { SuccessModal } from '../components/SuccessModal';
 import { api } from '../api';
 import { formatDepositTotal, formatMenuPrice } from '../utils/currency';
-import { openRazorpayCheckout } from '../utils/razorpayCheckout';
+import { processReservationPayment } from '../utils/paymentFlow';
 import {
   ArrowLeft,
   MapPin,
@@ -63,7 +63,7 @@ export const RestaurantDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { currentUser, addNewReservation, showToast, openAuthModal } = useApp();
+  const { currentUser, addNewReservation, updateReservationInState, showToast, openAuthModal } = useApp();
 
   const isStaffUser =
     currentUser?.role === "admin" ||
@@ -311,21 +311,28 @@ export const RestaurantDetails = () => {
         return;
       }
 
-      if (result?.razorpayOrder && (result.paymentKeyId || paymentConfig?.keyId)) {
-        const verified = await openRazorpayCheckout({
-          keyId: result.paymentKeyId || paymentConfig.keyId,
-          order: result.razorpayOrder,
-          reservationId: result.id,
-          user: {
-            ...currentUser,
-            phone: customerPhone,
-          },
-          restaurantName: restaurant.name,
-          verifyPayment: api.verifyRazorpayPayment,
-          onSuccess: (paidReservation) => {
+      if (
+        paymentConfig?.enabled &&
+        (result?.razorpayOrder || result?.paymentProvider === "razorpay")
+      ) {
+        const paid = await processReservationPayment({
+          reservation: result,
+          currentUser: { ...currentUser, phone: customerPhone },
+          paymentConfig,
+          existingPayment: result.razorpayOrder
+            ? {
+                razorpayOrder: result.razorpayOrder,
+                keyId: result.paymentKeyId,
+                provider: result.paymentProvider,
+                demoMode: result.paymentDemoMode,
+                alreadyPaid: false,
+                reservation: result,
+              }
+            : null,
+          onPaid: (updated) => {
             const enriched = {
               ...result,
-              ...paidReservation,
+              ...updated,
               restaurantName: restaurant.name,
               restaurantCuisine:
                 restaurant.cuisineType?.[0] || restaurant.cuisine || '',
@@ -334,27 +341,31 @@ export const RestaurantDetails = () => {
               customerEmail: currentUser.email,
               guests: result.guests || result.partySize,
             };
+            updateReservationInState(enriched);
             setCreatedReservation(enriched);
             showToast(
               'Payment successful — reservation submitted for approval.',
               'success',
             );
           },
-          onDismiss: () => {
+          onFailed: () => {
+            updateReservationInState({
+              ...result,
+              paymentStatus: 'failed',
+            });
             showToast(
-              'Payment cancelled. Your reservation is unpaid and may not be confirmed.',
+              'Payment was not completed. Find this booking in My Reservations and tap Pay Now to retry.',
               'error',
             );
           },
         });
 
-        if (!verified) {
-          setCreatedReservation(result);
+        if (!paid) {
+          return;
         }
-        return;
+      } else {
+        setCreatedReservation(result);
       }
-
-      setCreatedReservation(result);
       
       // Reset choices
       setBookingTime('');

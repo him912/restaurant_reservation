@@ -81,7 +81,7 @@ const createRazorpayOrder = async (reservation, amount, userId) => {
   const order = await razorpay.orders.create({
     amount,
     currency: PAYMENT_CURRENCY.toUpperCase(),
-    receipt: `res_${reservation._id.toString().slice(-12)}`,
+    receipt: `res_${reservation._id.toString().slice(-8)}_${Date.now()}`,
     notes: {
       reservationId: reservation._id.toString(),
       userId: String(userId),
@@ -443,6 +443,38 @@ exports.stripeWebhook = async (req, res) => {
     res.status(200).json({ received: true });
   } catch (error) {
     res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+exports.markPaymentFailed = async (req, res) => {
+  try {
+    const { reservationId } = req.body;
+    const userId = req.user?.id;
+
+    if (!reservationId) {
+      return res.status(400).json({
+        success: false,
+        message: "reservationId is required",
+      });
+    }
+
+    const reservation = await loadReservationForPayment(reservationId, userId);
+
+    if (reservation.paymentStatus !== "paid") {
+      reservation.paymentStatus = "failed";
+      await reservation.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Payment marked as failed",
+      data: reservation,
+    });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
       success: false,
       message: error.message,
     });

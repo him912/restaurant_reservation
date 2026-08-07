@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { api } from "../api";
+import { processReservationPayment } from "../utils/paymentFlow";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -520,7 +521,7 @@ export const AppProvider = ({ children }) => {
           "success",
         );
       } else if (payment?.razorpayOrder) {
-        showToast("Complete payment in the Razorpay window.", "info");
+        // Payment window is opened by the booking page / retry flow.
       } else {
         showToast("Reservation submitted — awaiting approval", "success");
       }
@@ -559,6 +560,58 @@ export const AppProvider = ({ children }) => {
           : reservation.status || "pending",
       id: reservation._id || reservation.id,
     };
+  };
+
+  const updateReservationInState = (updatedReservation) => {
+    const normalized = {
+      ...updatedReservation,
+      ...normalizePaymentFields(updatedReservation),
+    };
+
+    setReservations((prev) =>
+      prev.map((r) => (r.id === normalized.id ? { ...r, ...normalized } : r)),
+    );
+
+    return normalized;
+  };
+
+  const retryReservationPayment = async (reservation, paymentConfig) => {
+    try {
+      const paid = await processReservationPayment({
+        reservation,
+        currentUser,
+        paymentConfig,
+        onPaid: (updated) => {
+          const merged = updateReservationInState(updated);
+          showToast("Payment successful — deposit received.", "success");
+          return merged;
+        },
+        onFailed: (reason) => {
+          updateReservationInState({
+            ...reservation,
+            paymentStatus: "failed",
+          });
+          showToast(
+            reason === "failed"
+              ? "Payment failed. You can retry from your reservations."
+              : "Payment cancelled. You can retry from your reservations.",
+            "error",
+          );
+        },
+      });
+
+      if (paid) {
+        return updateReservationInState(paid);
+      }
+
+      return null;
+    } catch (err) {
+      showToast(
+        err?.response?.data?.message || "Could not start payment. Try again.",
+        "error",
+      );
+      throw err;
+    }
   };
 
   const cancelUserReservation = async (id) => {
@@ -857,6 +910,8 @@ export const AppProvider = ({ children }) => {
         refreshReservations,
         fetchOwnerReservations,
         addNewReservation,
+        retryReservationPayment,
+        updateReservationInState,
         cancelUserReservation,
         updateUserReservation,
         changeBookingStatus,

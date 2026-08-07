@@ -62,12 +62,16 @@ export const SuccessModal = ({ reservation, onClose }) => {
               <h3 id="success-modal-title" className="text-xl font-bold tracking-tight text-black">
                 {reservation.paymentStatus === 'paid'
                   ? 'Reservation Confirmed!'
-                  : 'Reservation Submitted!'}
+                  : reservation.paymentStatus === 'failed'
+                    ? 'Payment Failed'
+                    : 'Reservation Submitted!'}
               </h3>
               <p className="text-slate-500 text-xs mt-1">
                 {reservation.paymentStatus === 'paid'
                   ? 'Deposit paid — your table request is awaiting restaurant approval.'
-                  : 'Your dining table request is locked and loaded.'}
+                  : reservation.paymentStatus === 'failed'
+                    ? 'Your booking was saved but the deposit was not received. Pay from My Reservations.'
+                    : 'Your dining table request is locked and loaded.'}
               </p>
             </div>
 

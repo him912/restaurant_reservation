@@ -869,6 +869,20 @@ export const api = {
     }
   },
 
+  markPaymentFailed: async (reservationId) => {
+    try {
+      const response = await axios.post(
+        `${API_URL}/payments/mark-failed`,
+        { reservationId },
+        getAuthConfig(),
+      );
+      return normalizeReservation(response.data?.data || response.data);
+    } catch (err) {
+      console.error("Failed to mark payment as failed:", err);
+      throw err;
+    }
+  },
+
   getPaymentConfig: async () => {
     try {
       const response = await axios.get(`${API_URL}/payments/config`);

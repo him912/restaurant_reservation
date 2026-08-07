@@ -3,17 +3,59 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { RatingStars } from '../components/RatingStars';
-import { Calendar, Clock, Users, Ban, Sparkles, Star, History, BookmarkCheck, UtensilsCrossed } from 'lucide-react';
+import { Calendar, Clock, Users, Ban, Sparkles, Star, History, BookmarkCheck, UtensilsCrossed, CreditCard } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
+import { api } from '../api';
+import { canRetryPayment, getPaymentStatusLabel } from '../utils/paymentFlow';
+import { formatMoney } from '../utils/currency';
 
 export const CustomerDashboard = () => {
-  const { currentUser, reservations, cancelUserReservation, updateUserReservation, openAuthModal } = useApp();
+  const {
+    currentUser,
+    reservations,
+    cancelUserReservation,
+    updateUserReservation,
+    retryReservationPayment,
+    openAuthModal,
+    showToast,
+  } = useApp();
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ date: '', time: '', guests: 2 });
+  const [paymentConfig, setPaymentConfig] = useState(null);
+  const [payingId, setPayingId] = useState(null);
+
+  useEffect(() => {
+    api.getPaymentConfig().then(setPaymentConfig).catch(() => {});
+  }, []);
+
+  const getPaymentBadgeClass = (paymentStatus) => {
+    if (paymentStatus === 'paid') {
+      return 'bg-emerald-50 text-emerald-800 border-emerald-100';
+    }
+    if (paymentStatus === 'failed') {
+      return 'bg-rose-50 text-rose-700 border-rose-100';
+    }
+    if (paymentStatus === 'pending') {
+      return 'bg-amber-50 text-amber-800 border-amber-100';
+    }
+    return 'bg-slate-100 text-slate-600 border-slate-200';
+  };
+
+  const handlePayNow = async (reservation) => {
+    try {
+      setPayingId(reservation.id);
+      await retryReservationPayment(reservation, paymentConfig);
+    } catch (err) {
+      console.error(err);
+      showToast('Could not start payment. Please try again.', 'error');
+    } finally {
+      setPayingId(null);
+    }
+  };
 
   // Filter individual user reservations (matched by mock email or name)
   const userReservations = useMemo(() => {
@@ -258,19 +300,40 @@ export const CustomerDashboard = () => {
 
                         {/* Status badge & cancel triggers */}
                         <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-wide border ${
-                              res.status === 'confirmed'
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
-                                : res.status === 'cancelled'
-                                  ? 'bg-slate-100 text-slate-500 border-slate-200'
-                                  : 'bg-amber-50 text-amber-800 border-amber-100'
-                            }`}
-                          >
-                            {res.status === 'pending' ? 'awaiting approval' : res.status}
-                          </span>
+                          <div className="flex flex-col items-end gap-1.5">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-wide border ${
+                                res.status === 'confirmed'
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                                  : res.status === 'cancelled'
+                                    ? 'bg-slate-100 text-slate-500 border-slate-200'
+                                    : 'bg-amber-50 text-amber-800 border-amber-100'
+                              }`}
+                            >
+                              {res.status === 'pending' ? 'awaiting approval' : res.status}
+                            </span>
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-wide border ${getPaymentBadgeClass(res.paymentStatus)}`}
+                            >
+                              {res.paymentStatus === 'paid'
+                                ? `paid ${formatMoney(res.paymentAmount, res.paymentCurrency)}`
+                                : getPaymentStatusLabel(res.paymentStatus)}
+                            </span>
+                          </div>
 
                           <div className="flex flex-col gap-2 items-end">
+                            {canRetryPayment(res, paymentConfig) && (
+                              <button
+                                onClick={() => handlePayNow(res)}
+                                disabled={payingId === res.id}
+                                className="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 flex items-center gap-1 py-1.5 px-2.5 rounded-xl transition cursor-pointer"
+                                id={`pay-btn-${res.id}`}
+                              >
+                                <CreditCard size={12} />
+                                <span>{payingId === res.id ? 'Opening…' : 'Pay Now'}</span>
+                              </button>
+                            )}
+
                             <button
                               onClick={() => handleEditStart(res)}
                               className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 py-1 px-2.5 hover:bg-indigo-50 rounded-xl transition cursor-pointer"
@@ -341,6 +404,13 @@ export const CustomerDashboard = () => {
 
                       <div className="flex items-center gap-4 text-xs font-semibold text-slate-500">
                         <span>{res.guests} seats</span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide border ${getPaymentBadgeClass(res.paymentStatus)}`}
+                        >
+                          {res.paymentStatus === 'paid'
+                            ? 'paid'
+                            : getPaymentStatusLabel(res.paymentStatus)}
+                        </span>
                         <span
                           className={`px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide border ${
                             res.status === 'cancelled'
