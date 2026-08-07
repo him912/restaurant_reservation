@@ -36,6 +36,15 @@ const updateRestaurantRating = async (restaurantId) => {
 
 exports.createReview = async (req, res) => {
   try {
+    const userRole = req.user?.role;
+    if (userRole === "admin" || userRole === "restaurant_owner") {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Admins and restaurant owners cannot submit reviews. You can reply to existing reviews instead.",
+      });
+    }
+
     const { restaurantId, reviewName, rating, comment, photos } = req.body;
     const userId = req.user?.id;
     const files = req.files || [];
@@ -156,6 +165,16 @@ exports.updateReview = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    if (userRole === "admin" || userRole === "restaurant_owner") {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Admins and restaurant owners cannot edit reviews. You can reply to existing reviews instead.",
+      });
+    }
+
     const { reviewName, rating, comment, photos } = req.body;
     const files = req.files || [];
 

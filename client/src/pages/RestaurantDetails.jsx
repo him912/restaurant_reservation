@@ -70,6 +70,7 @@ export const RestaurantDetails = () => {
     currentUser?.role === "restaurant_owner" ||
     currentUser?.role === "owner";
   const canBookTable = Boolean(currentUser) && !isStaffUser;
+  const canSubmitReview = Boolean(currentUser) && !isStaffUser;
 
   // Local Component States
   const [restaurant, setRestaurant] = useState(null);
@@ -430,11 +431,12 @@ export const RestaurantDetails = () => {
     return String(currentUser.id) === String(review.authorUserId);
   };
 
-  const isRestaurantOwner = Boolean(
-    currentUser &&
-      (currentUser.role === 'restaurant_owner' ||
-        currentUser.role === 'owner' ||
-        currentUser.role?.includes('owner')),
+  const canReplyToReviews = Boolean(
+    restaurant &&
+      currentUser &&
+      (currentUser.role === "restaurant_owner" || currentUser.role === "owner") &&
+      restaurant.ownerId &&
+      String(restaurant.ownerId) === String(currentUser.id),
   );
 
   const handleResponseDraftChange = (reviewId, value) => {
@@ -498,6 +500,14 @@ export const RestaurantDetails = () => {
     if (!currentUser) {
       showToast('Please log in to submit a review.', 'error');
       openAuthModal('login');
+      return;
+    }
+
+    if (isStaffUser) {
+      showToast(
+        'Admins and restaurant owners cannot post reviews. Reply to customer reviews instead.',
+        'error',
+      );
       return;
     }
 
@@ -793,7 +803,7 @@ export const RestaurantDetails = () => {
                   {editingReviewId ? 'Update Your Dining Experience Review' : 'Post a Dining Experience Review'}
                 </h4>
                 
-                {currentUser ? (
+                {canSubmitReview ? (
                   <form onSubmit={handleReviewSubmit} className="space-y-4">
                     <div>
                       <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1.5">Rating Score</label>
@@ -868,6 +878,16 @@ export const RestaurantDetails = () => {
                       )}
                     </div>
                   </form>
+                ) : currentUser && isStaffUser ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center" id="review-staff-fallback">
+                    <p className="text-amber-900 text-xs font-semibold leading-relaxed max-w-md mx-auto">
+                      {currentUser.role === 'admin'
+                        ? 'Admin accounts cannot post new reviews. Use the Admin Panel → Reviews tab to reply to customer feedback.'
+                        : canReplyToReviews
+                          ? 'As the restaurant owner, you can reply to customer reviews below. Owner accounts cannot post new reviews.'
+                          : 'Restaurant owners can only reply to reviews on their own restaurants. You cannot post new reviews.'}
+                    </p>
+                  </div>
                 ) : (
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-center" id="review-logout-fallback">
                     <p className="text-slate-500 text-xs mb-4">You must be logged in to compile star reviews or critiques for this restaurant.</p>
@@ -951,7 +971,7 @@ export const RestaurantDetails = () => {
                                 <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                                   {response.userId?.username || 'Restaurant owner'}
                                 </span>
-                                {isRestaurantOwner && (
+                                {canReplyToReviews && (
                                   <div className="flex items-center gap-2">
                                     <button
                                       type="button"
@@ -976,7 +996,7 @@ export const RestaurantDetails = () => {
                         </div>
                       )}
 
-                      {isRestaurantOwner && (
+                      {canReplyToReviews && (
                         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
                           <label className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-500 mb-2">
                             {editingResponse?.reviewId === rev.id ? 'Edit your reply' : 'Reply to this review'}
@@ -1187,11 +1207,18 @@ export const RestaurantDetails = () => {
                       {bookingLoading && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
                     </button>
                     {paymentConfig && (
-                      <p className="text-[10px] text-slate-500 text-center font-semibold leading-relaxed">
-                        {paymentConfig.enabled
-                          ? `Secure Razorpay checkout · ${paymentConfig.depositPerGuestDisplay || formatDepositTotal(paymentConfig.depositPerGuestMinorUnits || paymentConfig.depositPerGuestCents, 1, paymentConfig.currency)} deposit per guest`
-                          : 'Demo payment mode is active (Razorpay keys not configured on server)'}
-                      </p>
+                      <div className="mt-2 space-y-1">
+                        <p className="text-[10px] text-slate-500 text-center font-semibold leading-relaxed">
+                          {paymentConfig.enabled
+                            ? `Secure Razorpay checkout · ${paymentConfig.depositPerGuestDisplay || formatDepositTotal(paymentConfig.depositPerGuestMinorUnits || paymentConfig.depositPerGuestCents, 1, paymentConfig.currency)} deposit per guest`
+                            : 'Demo payment mode is active (Razorpay keys not configured on server)'}
+                        </p>
+                        {paymentConfig.enabled && (
+                          <p className="text-[9px] text-slate-400 text-center leading-relaxed">
+                            India test: UPI <span className="font-mono text-slate-500">success@razorpay</span> or domestic card 5267 3181 8797 5449
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 </form>

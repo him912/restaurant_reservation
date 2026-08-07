@@ -99,14 +99,28 @@ Without Razorpay keys, the API runs in **demo payment mode** (reservation is mar
 3. Add `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` to `server/.env`
 4. Redeploy the backend
 
-**Test card (Razorpay test mode):**
+**Test payments (Razorpay test mode only — use `rzp_test_...` keys):**
 
-| Card | Result |
-|------|--------|
-| `4111 1111 1111 1111` | Success |
-| Any future expiry, any CVV |
+Indian Razorpay accounts often accept **domestic cards only**. If you see *"accepts domestic (Indian) card payments only"*, do **not** use international test cards — use one of these instead:
 
-UPI and wallets also work in Razorpay test/live checkout.
+| Method | Details | Result |
+|--------|---------|--------|
+| **UPI** (easiest) | Enter `success@razorpay` | Success |
+| **UPI** | Enter `failure@razorpay` | Failed payment |
+| **Visa (domestic)** | `4111 1111 1111 1111` | Success |
+| **Mastercard (domestic)** | `5267 3181 8797 5449` | Success |
+| **RuPay (domestic)** | `6070 1000 2000 0004` | Success |
+| **Netbanking** | Pick any bank → mock Success page | Success |
+
+For cards: any **future expiry**, any **CVV**. If 3DS OTP appears, use `1234`.
+
+**Do not use** international test cards (e.g. `4012 8888 8888 1881`) on an India domestic-only account.
+
+**Checklist if payment fails:**
+1. Razorpay Dashboard is in **Test Mode** (not Live)
+2. Server uses `RAZORPAY_KEY_ID=rzp_test_...` (not `rzp_live_...`)
+3. Prefer **UPI** `success@razorpay` or **Netbanking** for quickest testing
+4. Dashboard → **Settings** → **Payment methods** → cards/UPI enabled
 
 ### Currency (India / INR)
 
