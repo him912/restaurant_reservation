@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 import { RatingStars } from "./RatingStars";
 import { MapPin, ArrowRight } from "lucide-react";
+import { normalizePriceRange } from "../utils/restaurantSearch";
 
 export const RestaurantCard = ({ restaurant }) => {
   const navigate = useNavigate();
@@ -87,7 +88,7 @@ export const RestaurantCard = ({ restaurant }) => {
                 ({restaurant.reviewCount || 0})
               </span>
             </div>
-            {renderPrice(restaurant.priceRange || "§§")}
+            {renderPrice(normalizePriceRange(restaurant.priceRange) || "$$")}
           </div>
 
           {/* Restaurant Title */}

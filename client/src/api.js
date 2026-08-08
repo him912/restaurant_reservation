@@ -218,6 +218,48 @@ export const api = {
     }
   },
 
+  searchRestaurants: async (params = {}) => {
+    try {
+      const query = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (
+          value === undefined ||
+          value === null ||
+          value === "" ||
+          value === "All"
+        ) {
+          return;
+        }
+        if (Array.isArray(value)) {
+          if (value.length > 0) query.set(key, value.join(","));
+          return;
+        }
+        query.set(key, String(value));
+      });
+
+      const qs = query.toString();
+      const url = qs
+        ? `${API_URL}/restaurants/?${qs}`
+        : `${API_URL}/restaurants/`;
+      const response = await axios.get(url, getAuthConfig());
+      const data = response.data?.data || response.data || [];
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error("Failed to search restaurants:", err);
+      return [];
+    }
+  },
+
+  getRestaurantFilters: async () => {
+    try {
+      const response = await axios.get(`${API_URL}/restaurants/filters`);
+      return response.data?.data || null;
+    } catch (err) {
+      console.error("Failed to fetch restaurant filters:", err);
+      return null;
+    }
+  },
+
   getAdminRestaurants: async (status = null) => {
     try {
       let url = `${API_URL}/admin/restaurants`;

@@ -314,6 +314,7 @@ export const OwnerDashboard = () => {
   // Preset features list they can check off
   const availableFeatures = [
     "Outdoor Seating",
+    "Live Music",
     "Chef Table Only",
     "Pre-Payment Required",
     "Sake Flight Pairings",
@@ -322,6 +323,16 @@ export const OwnerDashboard = () => {
     "Valet Parking Available",
     "Private Dining Rooms",
     "Gluten-Free Menu Options",
+    "Vegan-Only Cooking Stations",
+    "100% Organic Ingredients",
+    "Vegetarian Friendly",
+    "Halal Options",
+    "Pet Friendly Patio",
+    "Wheelchair Accessible",
+    "Free Wi-Fi",
+    "Bar & Lounge",
+    "Family Friendly",
+    "Rooftop Views",
   ];
 
   // Save profile updates

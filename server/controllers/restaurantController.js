@@ -1,5 +1,12 @@
 const Restaurant = require("../models/Restaurant");
 const cloudinary = require("../utils/cloudinary");
+const {
+  DIETARY_OPTIONS,
+  AMBIANCE_OPTIONS,
+  SPECIAL_FEATURES,
+  PRICE_RANGES,
+  parseCsv,
+} = require("../constants/restaurantFilters");
 
 const parseArrayField = (value) => {
   if (Array.isArray(value)) return value;
@@ -103,6 +110,17 @@ exports.createRestaurant = async (req, res) => {
 // Helper to safely build regular expressions from query text
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const applyFeatureGroupFilter = (query, values = []) => {
+  if (!values.length) return;
+
+  if (!query.$and) query.$and = [];
+  values.forEach((value) => {
+    query.$and.push({
+      features: new RegExp(escapeRegExp(value), "i"),
+    });
+  });
+};
+
 // ================= GET ALL RESTAURANTS =================
 exports.getAllRestaurants = async (req, res) => {
   try {
@@ -115,6 +133,9 @@ exports.getAllRestaurants = async (req, res) => {
       ratingMax,
       capacityMin,
       capacityMax,
+      dietary,
+      ambiance,
+      features,
       sortBy = "createdAt",
       sortOrder = "desc",
       page = 1,
@@ -173,6 +194,10 @@ exports.getAllRestaurants = async (req, res) => {
       if (capacityMax) query.capacity.$lte = Number(capacityMax);
     }
 
+    applyFeatureGroupFilter(query, parseCsv(dietary));
+    applyFeatureGroupFilter(query, parseCsv(ambiance));
+    applyFeatureGroupFilter(query, parseCsv(features));
+
     const sortFields = ["name", "rating", "priceRange", "city", "createdAt"];
     const sortDirection = sortOrder === "asc" ? 1 : -1;
     const sort = sortFields.includes(sortBy)
@@ -207,18 +232,24 @@ exports.getAllRestaurants = async (req, res) => {
 // ================= GET RESTAURANT FILTER VALUES =================
 exports.getRestaurantFilters = async (req, res) => {
   try {
-    const [cities, cuisines, priceRanges] = await Promise.all([
+    const [cities, cuisines, priceRanges, features] = await Promise.all([
       Restaurant.distinct("city", { isActive: true }),
       Restaurant.distinct("cuisineType", { isActive: true }),
       Restaurant.distinct("priceRange", { isActive: true }),
+      Restaurant.distinct("features", { isActive: true }),
     ]);
 
     res.status(200).json({
       success: true,
       data: {
-        cities,
-        cuisines,
-        priceRanges,
+        cities: cities.filter(Boolean).sort(),
+        cuisines: cuisines.filter(Boolean).sort(),
+        priceRanges: priceRanges.filter(Boolean).sort(),
+        features: features.filter(Boolean).sort(),
+        dietaryOptions: DIETARY_OPTIONS,
+        ambianceOptions: AMBIANCE_OPTIONS,
+        specialFeatures: SPECIAL_FEATURES,
+        canonicalPriceRanges: PRICE_RANGES,
       },
     });
   } catch (error) {
