@@ -2,6 +2,12 @@
 
 DineFlow is a full-stack restaurant reservation and review platform. Customers can browse restaurants, book tables, and leave reviews. Restaurant owners manage their venue, menu, and reservations. Admins oversee restaurants, reservations, and reviews across the platform.
 
+> **Separate READMEs for each part of the monorepo:**
+> - [Frontend (`client/README.md`)](./client/README.md) — React / Vite app
+> - [Backend (`server/README.md`)](./server/README.md) — Node.js / Express API
+>
+> GitHub folders: [client](https://github.com/him912/restaurant_reservation/tree/main/client) · [server](https://github.com/him912/restaurant_reservation/tree/main/server)
+
 ## Live Demo
 
 - **Frontend:** Deploy on Vercel / Netlify (configure `VITE_API_URL`)
