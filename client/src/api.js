@@ -1013,6 +1013,9 @@ export const api = {
       await axios.delete(`${API_URL}/reservations/${id}`, getAuthConfig());
       return { id, status: "cancelled" };
     } catch (err) {
+      if (err.response) {
+        throw err;
+      }
       console.error("Failed to cancel reservation via backend:", err);
       await delay(350);
       const data = localStorage.getItem("restaurant_platform_reservations");

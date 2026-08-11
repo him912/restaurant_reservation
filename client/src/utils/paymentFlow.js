@@ -25,6 +25,15 @@ export const canRetryPayment = (reservation, paymentConfig) =>
   reservation?.paymentStatus !== "paid" &&
   reservation?.status !== "cancelled";
 
+export const isReservationConfirmed = (reservation) =>
+  reservation?.status === "confirmed" || reservation?.status === "reserved";
+
+export const isPaidAndConfirmed = (reservation) =>
+  reservation?.paymentStatus === "paid" && isReservationConfirmed(reservation);
+
+export const canCustomerCancelReservation = (reservation) =>
+  reservation?.status !== "cancelled" && !isPaidAndConfirmed(reservation);
+
 export const getPaymentStatusLabel = (paymentStatus) => {
   switch (paymentStatus) {
     case "paid":

@@ -285,6 +285,24 @@ exports.deleteReservation = async (req, res) => {
       });
     }
 
+    if (reservation.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Reservation is already cancelled",
+      });
+    }
+
+    if (
+      reservation.paymentStatus === "paid" &&
+      reservation.status === "reserved"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Confirmed paid reservations cannot be cancelled online. Please contact the restaurant.",
+      });
+    }
+
     const restaurantId = reservation.restaurantId.toString();
     const date = reservation.date.toISOString().split("T")[0];
 

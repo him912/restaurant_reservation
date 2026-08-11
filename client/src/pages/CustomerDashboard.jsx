@@ -10,7 +10,12 @@ import { Calendar, Clock, Users, Ban, Sparkles, Star, History, BookmarkCheck, Ut
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
-import { canRetryPayment, getPaymentStatusLabel } from '../utils/paymentFlow';
+import {
+  canCustomerCancelReservation,
+  canRetryPayment,
+  getPaymentStatusLabel,
+  isPaidAndConfirmed,
+} from '../utils/paymentFlow';
 import {
   getTodayDateString,
   isPastBookingDate,
@@ -101,9 +106,21 @@ export const CustomerDashboard = () => {
     return { upcomingBookings: active, pastBookings: historic };
   }, [userReservations]);
 
-  const handleCancelClick = async (id) => {
-    if (window.confirm('Are you sure you want to cancel this reservation? The table will be immediately opened to other guests.')) {
-      await cancelUserReservation(id);
+  const handleCancelClick = async (reservation) => {
+    if (!canCustomerCancelReservation(reservation)) {
+      showToast(
+        'Confirmed paid reservations cannot be cancelled online. Please contact the restaurant.',
+        'error',
+      );
+      return;
+    }
+
+    if (
+      window.confirm(
+        'Are you sure you want to cancel this reservation? The table will be immediately opened to other guests.',
+      )
+    ) {
+      await cancelUserReservation(reservation.id);
     }
   };
 
@@ -371,14 +388,20 @@ export const CustomerDashboard = () => {
                               <span>Edit</span>
                             </button>
 
-                            <button
-                              onClick={() => handleCancelClick(res.id)}
-                              className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 py-1 px-2.5 hover:bg-rose-50 rounded-xl transition cursor-pointer"
-                              id={`cancel-btn-${res.id}`}
-                            >
-                              <Ban size={12} />
-                              <span>Cancel Seat</span>
-                            </button>
+                            {canCustomerCancelReservation(res) ? (
+                              <button
+                                onClick={() => handleCancelClick(res)}
+                                className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 py-1 px-2.5 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                                id={`cancel-btn-${res.id}`}
+                              >
+                                <Ban size={12} />
+                                <span>Cancel Seat</span>
+                              </button>
+                            ) : isPaidAndConfirmed(res) ? (
+                              <span className="text-[10px] font-semibold text-slate-400 text-right max-w-[140px] leading-snug">
+                                Confirmed paid bookings cannot be cancelled online
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                       </div>
@@ -492,7 +515,7 @@ export const CustomerDashboard = () => {
             <div className="bg-white border border-slate-150 rounded-3xl p-6 text-xs text-slate-500 space-y-3 shadow-xs" id="dashboard-advisory-box">
               <h4 className="font-bold text-slate-900 uppercase tracking-widest text-[10px]">Reservation Terms:</h4>
               <p className="leading-relaxed font-semibold">
-                ● Cancel at minimum 2 hours prior to arrival time out of respect to partner culinary staff.
+                ● Cancel at minimum 2 hours prior to arrival time. Once payment is complete and the reservation is confirmed by the restaurant, online cancellation is not available.
               </p>
               <p className="leading-relaxed font-semibold">
                 ● Seating reservations are held up to exactly 15 minutes past scheduled slot time.

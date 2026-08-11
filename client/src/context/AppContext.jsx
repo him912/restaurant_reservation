@@ -622,7 +622,10 @@ export const AppProvider = ({ children }) => {
       );
       showToast("Reservation has been cancelled.", "info");
     } catch (err) {
-      showToast("Failed to cancel reservation.", "error");
+      showToast(
+        err?.response?.data?.message || "Failed to cancel reservation.",
+        "error",
+      );
     }
   };
 
