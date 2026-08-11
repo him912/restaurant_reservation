@@ -480,10 +480,10 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const refreshReservations = async () => {
+  const refreshReservations = useCallback(async () => {
     const list = await api.getReservations();
     setReservations(list);
-  };
+  }, []);
 
   const addNewReservation = async (res) => {
     try {
@@ -638,7 +638,10 @@ export const AppProvider = ({ children }) => {
       showToast("Reservation updated successfully.", "success");
       return updated;
     } catch (err) {
-      showToast("Failed to update reservation.", "error");
+      showToast(
+        err?.response?.data?.message || "Failed to update reservation.",
+        "error",
+      );
       throw err;
     }
   };

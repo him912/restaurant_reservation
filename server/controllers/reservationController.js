@@ -131,12 +131,9 @@ exports.getMyReservations = async (req, res) => {
 
     await reconcileReservations({ userId });
 
-    const reservations = await Reservation.find({
-      userId,
-      status: { $in: ["pending", "reserved"] },
-    })
-      .populate("restaurantId", "name city address capacity image")
-      .sort({ date: -1, time: 1 });
+    const reservations = await Reservation.find({ userId })
+      .populate("restaurantId", "name city address capacity image cuisineType")
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -170,6 +167,24 @@ exports.updateReservation = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: "Not authorized to update this reservation",
+      });
+    }
+
+    if (reservation.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Cancelled reservations cannot be edited",
+      });
+    }
+
+    if (
+      reservation.paymentStatus === "paid" &&
+      reservation.status === "reserved"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Confirmed paid reservations cannot be edited online. Please contact the restaurant.",
       });
     }
 

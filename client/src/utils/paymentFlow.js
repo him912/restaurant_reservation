@@ -31,6 +31,9 @@ export const isReservationConfirmed = (reservation) =>
 export const isPaidAndConfirmed = (reservation) =>
   reservation?.paymentStatus === "paid" && isReservationConfirmed(reservation);
 
+export const canCustomerEditReservation = (reservation) =>
+  reservation?.status !== "cancelled" && !isPaidAndConfirmed(reservation);
+
 export const canCustomerCancelReservation = (reservation) =>
   reservation?.status !== "cancelled" && !isPaidAndConfirmed(reservation);
 

@@ -12,15 +12,18 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import {
   canCustomerCancelReservation,
+  canCustomerEditReservation,
   canRetryPayment,
   getPaymentStatusLabel,
   isPaidAndConfirmed,
 } from '../utils/paymentFlow';
 import {
+  getReservationDateTime,
   getTodayDateString,
   isPastBookingDate,
   isPastBookingSlot,
 } from '../utils/bookingDate';
+import { isReservationPast } from '../utils/reservationLifecycle';
 import { formatMoney } from '../utils/currency';
 
 export const CustomerDashboard = () => {
@@ -30,6 +33,7 @@ export const CustomerDashboard = () => {
     cancelUserReservation,
     updateUserReservation,
     retryReservationPayment,
+    refreshReservations,
     openAuthModal,
     showToast,
   } = useApp();
@@ -50,6 +54,13 @@ export const CustomerDashboard = () => {
   useEffect(() => {
     api.getPaymentConfig().then(setPaymentConfig).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!currentUser || currentUser.role === 'admin' || currentUser.role === 'restaurant_owner') {
+      return;
+    }
+    refreshReservations().catch(() => {});
+  }, [currentUser, refreshReservations]);
 
   const getPaymentBadgeClass = (paymentStatus) => {
     if (paymentStatus === 'paid') {
@@ -92,16 +103,22 @@ export const CustomerDashboard = () => {
     const active = [];
     const historic = [];
 
-    const now = new Date();
-    userReservations.forEach(r => {
-      const bDate = new Date(`${r.date} ${r.time.split(' - ')[0]}`);
-      // If cancelled, or past date limit
-      if (r.status === 'cancelled' || bDate < now) {
-        historic.push(r);
+    userReservations.forEach((reservation) => {
+      if (reservation.status === 'cancelled' || isReservationPast(reservation)) {
+        historic.push(reservation);
       } else {
-        active.push(r);
+        active.push(reservation);
       }
     });
+
+    const sortByBookingDate = (a, b) => {
+      const aTime = getReservationDateTime(a)?.getTime() || 0;
+      const bTime = getReservationDateTime(b)?.getTime() || 0;
+      return bTime - aTime;
+    };
+
+    active.sort(sortByBookingDate);
+    historic.sort(sortByBookingDate);
 
     return { upcomingBookings: active, pastBookings: historic };
   }, [userReservations]);
@@ -125,6 +142,14 @@ export const CustomerDashboard = () => {
   };
 
   const handleEditStart = (reservation) => {
+    if (!canCustomerEditReservation(reservation)) {
+      showToast(
+        'Confirmed paid reservations cannot be edited online. Please contact the restaurant.',
+        'error',
+      );
+      return;
+    }
+
     setEditingId(reservation.id);
     setEditForm({
       date: reservation.date || '',
@@ -379,14 +404,20 @@ export const CustomerDashboard = () => {
                               </button>
                             )}
 
-                            <button
-                              onClick={() => handleEditStart(res)}
-                              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 py-1 px-2.5 hover:bg-indigo-50 rounded-xl transition cursor-pointer"
-                              id={`edit-btn-${res.id}`}
-                            >
-                              <Calendar size={12} />
-                              <span>Edit</span>
-                            </button>
+                            {canCustomerEditReservation(res) ? (
+                              <button
+                                onClick={() => handleEditStart(res)}
+                                className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 py-1 px-2.5 hover:bg-indigo-50 rounded-xl transition cursor-pointer"
+                                id={`edit-btn-${res.id}`}
+                              >
+                                <Calendar size={12} />
+                                <span>Edit</span>
+                              </button>
+                            ) : isPaidAndConfirmed(res) ? (
+                              <span className="text-[10px] font-semibold text-slate-400 text-right max-w-[140px] leading-snug">
+                                Confirmed paid bookings cannot be edited online
+                              </span>
+                            ) : null}
 
                             {canCustomerCancelReservation(res) ? (
                               <button
@@ -448,7 +479,10 @@ export const CustomerDashboard = () => {
                         <div>
                           <h4 className="font-bold text-slate-900 text-sm">{res.restaurantName}</h4>
                           <span className="text-[10px] text-slate-400 font-bold block mt-0.5">
-                            Dined on {new Date(res.date).toLocaleDateString()}
+                            {res.status === 'cancelled'
+                              ? `Cancelled · ${new Date(res.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                              : `Dined on ${new Date(res.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                            {res.time ? ` at ${res.time}` : ''}
                           </span>
                         </div>
                       </div>
@@ -515,7 +549,7 @@ export const CustomerDashboard = () => {
             <div className="bg-white border border-slate-150 rounded-3xl p-6 text-xs text-slate-500 space-y-3 shadow-xs" id="dashboard-advisory-box">
               <h4 className="font-bold text-slate-900 uppercase tracking-widest text-[10px]">Reservation Terms:</h4>
               <p className="leading-relaxed font-semibold">
-                ● Cancel at minimum 2 hours prior to arrival time. Once payment is complete and the reservation is confirmed by the restaurant, online cancellation is not available.
+                ● Once payment is complete and the reservation is confirmed by the restaurant, online edits and cancellations are not available.
               </p>
               <p className="leading-relaxed font-semibold">
                 ● Seating reservations are held up to exactly 15 minutes past scheduled slot time.

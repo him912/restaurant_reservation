@@ -957,6 +957,9 @@ export const api = {
       );
       return normalizeReservation(response.data?.data || response.data);
     } catch (err) {
+      if (err.response) {
+        throw err;
+      }
       console.error("Failed to update reservation via backend:", err);
       await delay(350);
       const data = localStorage.getItem("restaurant_platform_reservations");
