@@ -4,6 +4,11 @@ const Reservation = require("../models/Reservation");
 const Review = require("../models/Review");
 const User = require("../models/User");
 const { broadcastAvailabilityUpdate } = require("../sockets/availabilitySocket");
+const {
+  assertCanAcceptReservation,
+  reconcileReservations,
+  isReservationPast,
+} = require("../utils/reservationLifecycle");
 
 const getReservedSeats = async (restaurantId, date, time) => {
   const filter = {
@@ -265,6 +270,8 @@ exports.getAllReservationsAdmin = async (req, res) => {
     const pageNumber = Number(page) > 0 ? Number(page) : 1;
     const limitNumber = Number(limit) > 0 ? Number(limit) : 20;
 
+    await reconcileReservations(query);
+
     const total = await Reservation.countDocuments(query);
     const reservations = await Reservation.find(query)
       .populate("restaurantId", "name")
@@ -311,6 +318,24 @@ exports.updateReservationStatusAdmin = async (req, res) => {
     }
 
     if (status === "reserved") {
+      if (isReservationPast(reservation)) {
+        reservation.status = "cancelled";
+        await reservation.save();
+        return res.status(400).json({
+          success: false,
+          message: "Cannot accept — booking date and time have already passed",
+        });
+      }
+
+      try {
+        assertCanAcceptReservation(reservation);
+      } catch (error) {
+        return res.status(error.statusCode || 400).json({
+          success: false,
+          message: error.message,
+        });
+      }
+
       const restaurant = await Restaurant.findById(reservation.restaurantId);
       if (!restaurant || !restaurant.isActive) {
         return res.status(404).json({

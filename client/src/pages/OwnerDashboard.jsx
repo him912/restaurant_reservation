@@ -27,6 +27,8 @@ import { formatMenuPrice } from "../utils/currency";
 import { PaymentStatusBadge } from "../components/PaymentStatusBadge";
 import { usePolling } from "../hooks/usePolling";
 import { sortReservationsByCreatedAt } from "../utils/sortReservations";
+import { api } from "../api";
+import { canAcceptReservation, isReservationPast } from "../utils/reservationLifecycle";
 import { motion } from "motion/react";
 
 export const OwnerDashboard = () => {
@@ -46,6 +48,7 @@ export const OwnerDashboard = () => {
   } = useApp();
 
   const [selectedRestaurantId, setSelectedRestaurantId] = useState(null);
+  const [paymentConfig, setPaymentConfig] = useState(null);
   const [isCreateMode, setIsCreateMode] = useState(false);
   const [newRestaurantName, setNewRestaurantName] = useState("");
   const [newRestaurantDescription, setNewRestaurantDescription] = useState("");
@@ -73,6 +76,10 @@ export const OwnerDashboard = () => {
   const [newRestaurantGalleryFiles, setNewRestaurantGalleryFiles] = useState(
     [],
   );
+
+  useEffect(() => {
+    api.getPaymentConfig().then(setPaymentConfig).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (restaurants.length === 0) {
@@ -666,7 +673,9 @@ export const OwnerDashboard = () => {
                           >
                             {res.status === "pending"
                               ? "awaiting approval"
-                              : res.status}
+                              : res.status === "cancelled" && isReservationPast(res)
+                                ? "expired"
+                                : res.status}
                           </span>
                         </td>
 
@@ -678,7 +687,7 @@ export const OwnerDashboard = () => {
                               paymentAmount={res.paymentAmount}
                               paymentCurrency={res.paymentCurrency}
                             />
-                            {res.status === "pending" && (
+                            {canAcceptReservation(res, paymentConfig) && (
                               <button
                                 type="button"
                                 onClick={() =>

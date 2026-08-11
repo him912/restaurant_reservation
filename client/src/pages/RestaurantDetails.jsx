@@ -12,6 +12,11 @@ import { api } from '../api';
 import { formatDepositTotal, formatMenuPrice } from '../utils/currency';
 import { processReservationPayment } from '../utils/paymentFlow';
 import {
+  getTodayDateString,
+  isPastBookingDate,
+  isPastBookingSlot,
+} from '../utils/bookingDate';
+import {
   ArrowLeft,
   MapPin,
   Calendar,
@@ -190,31 +195,38 @@ export const RestaurantDetails = () => {
     loadAvailability();
   }, [id, bookingDate]);
 
-  // Restrict calendar selector to today or future
-  const todayDateStr = useMemo(() => {
-    const t = new Date();
-    const y = t.getFullYear();
-    const m = String(t.getMonth() + 1).padStart(2, '0');
-    const d = String(t.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  }, []);
+  const todayDateStr = getTodayDateString();
+
+  const handleBookingDateChange = (value) => {
+    if (value && isPastBookingDate(value)) {
+      showToast('Past dates cannot be selected. Please choose today or a future date.', 'error');
+      return;
+    }
+    setBookingDate(value);
+    setBookingTime('');
+  };
 
   const timeSlots = useMemo(() => {
     const capacity = Number(restaurant?.capacity) || 20;
     return DISPLAY_TIME_SLOTS.map((time) => {
       const apiTime = displayTimeToApi(time);
       const reservedSeats = Number(reservedByTime[apiTime] || 0);
+      const isPast = bookingDate
+        ? isPastBookingSlot(bookingDate, apiTime)
+        : false;
       return {
         time,
         isFull: reservedSeats + Number(bookingGuests) > capacity,
+        isPast,
+        isUnavailable: isPast || reservedSeats + Number(bookingGuests) > capacity,
       };
     });
-  }, [reservedByTime, bookingGuests, restaurant?.capacity]);
+  }, [reservedByTime, bookingGuests, restaurant?.capacity, bookingDate]);
 
   useEffect(() => {
     if (!bookingTime) return;
     const selectedSlot = timeSlots.find((slot) => slot.time === bookingTime);
-    if (selectedSlot?.isFull) {
+    if (selectedSlot?.isUnavailable) {
       setBookingTime('');
     }
   }, [bookingTime, timeSlots]);
@@ -258,7 +270,7 @@ export const RestaurantDetails = () => {
       showToast('Please select a dining date.', 'error');
       return;
     }
-    if (bookingDate < todayDateStr) {
+    if (isPastBookingDate(bookingDate)) {
       showToast('Please choose today or a future date.', 'error');
       return;
     }
@@ -267,6 +279,10 @@ export const RestaurantDetails = () => {
       return;
     }
     const selectedSlot = timeSlots.find((slot) => slot.time === bookingTime);
+    if (selectedSlot?.isPast) {
+      showToast('This time slot has already passed. Please choose another.', 'error');
+      return;
+    }
     if (selectedSlot?.isFull) {
       showToast('That time slot is full. Please choose another.', 'error');
       return;
@@ -1094,9 +1110,15 @@ export const RestaurantDetails = () => {
                         type="date"
                         min={todayDateStr}
                         value={bookingDate}
-                        onChange={e => setBookingDate(e.target.value)}
+                        onChange={(e) => handleBookingDateChange(e.target.value)}
+                        onBlur={(e) => {
+                          if (e.target.value && isPastBookingDate(e.target.value)) {
+                            handleBookingDateChange('');
+                          }
+                        }}
                         className="w-full bg-slate-950/60 border border-slate-800 rounded-xl py-2.5 pl-10 pr-3 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-white select-none relative custom-calendar-field transition-all"
                         id="booking-date-field"
+                        aria-label="Select booking date"
                       />
                     </div>
                   </div>
@@ -1152,10 +1174,10 @@ export const RestaurantDetails = () => {
                         <button
                           key={slot.time}
                           type="button"
-                          disabled={slot.isFull}
+                          disabled={slot.isUnavailable}
                           onClick={() => setBookingTime(slot.time)}
                           className={`py-2 px-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-                            slot.isFull
+                            slot.isUnavailable
                               ? 'bg-slate-950/20 border-slate-800 text-slate-600 line-through cursor-not-allowed'
                               : bookingTime === slot.time
                               ? 'bg-indigo-600 border-indigo-600 text-white shadow-md font-extrabold scale-102 shadow-indigo-900/30'
@@ -1164,8 +1186,8 @@ export const RestaurantDetails = () => {
                           id={`time-pills-${slot.time.replace(':', '_').replace(' ', '_')}`}
                         >
                           <span>{slot.time}</span>
-                          <span className={`text-[8px] font-bold leading-none ${slot.isFull ? 'text-slate-650' : bookingTime === slot.time ? 'text-indigo-250 font-bold' : 'text-slate-500'}`}>
-                            {slot.isFull ? 'Full' : 'Open'}
+                          <span className={`text-[8px] font-bold leading-none ${slot.isUnavailable ? 'text-slate-650' : bookingTime === slot.time ? 'text-indigo-250 font-bold' : 'text-slate-500'}`}>
+                            {slot.isPast ? 'Passed' : slot.isFull ? 'Full' : 'Open'}
                           </span>
                         </button>
                       ))}

@@ -1,6 +1,12 @@
 const Restaurant = require("../models/Restaurant");
 const Reservation = require("../models/Reservation");
 const { broadcastAvailabilityUpdate } = require("../sockets/availabilitySocket");
+const {
+  assertCanAcceptReservation,
+  reconcileReservations,
+  getReservationDateTime,
+  isReservationPast,
+} = require("../utils/reservationLifecycle");
 
 const parseDate = (dateString) => {
   if (!dateString) return null;
@@ -70,6 +76,17 @@ exports.createReservation = async (req, res) => {
       });
     }
 
+    const bookingDateTime = getReservationDateTime({
+      date: reservationDate,
+      time,
+    });
+    if (!bookingDateTime || bookingDateTime.getTime() <= Date.now()) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot book for a past date or time",
+      });
+    }
+
     const reservedSeats = await getReservedSeats(restaurantId, reservationDate, time);
     if (reservedSeats + Number(partySize) > restaurant.capacity) {
       return res.status(400).json({
@@ -111,6 +128,9 @@ exports.createReservation = async (req, res) => {
 exports.getMyReservations = async (req, res) => {
   try {
     const userId = req.user?.id;
+
+    await reconcileReservations({ userId });
+
     const reservations = await Reservation.find({
       userId,
       status: { $in: ["pending", "reserved"] },
@@ -383,6 +403,8 @@ exports.getOwnerReservations = async (req, res) => {
       query.restaurantId = restaurantId;
     }
 
+    await reconcileReservations(query);
+
     const reservations = await Reservation.find(query)
       .populate("restaurantId", "name cuisineType restaurantImage")
       .populate("userId", "username email")
@@ -440,6 +462,24 @@ exports.updateOwnerReservationStatus = async (req, res) => {
     }
 
     if (status === "reserved") {
+      if (isReservationPast(reservation)) {
+        reservation.status = "cancelled";
+        await reservation.save();
+        return res.status(400).json({
+          success: false,
+          message: "Cannot accept — booking date and time have already passed",
+        });
+      }
+
+      try {
+        assertCanAcceptReservation(reservation);
+      } catch (error) {
+        return res.status(error.statusCode || 400).json({
+          success: false,
+          message: error.message,
+        });
+      }
+
       let reservedSeats = await getReservedSeats(
         reservation.restaurantId,
         reservation.date,

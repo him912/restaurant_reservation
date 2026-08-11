@@ -28,6 +28,8 @@ import { motion } from "motion/react";
 import { PaymentStatusBadge } from "../components/PaymentStatusBadge";
 import { usePolling } from "../hooks/usePolling";
 import { sortReservationsByCreatedAt } from "../utils/sortReservations";
+import { api } from "../api";
+import { canAcceptReservation, isReservationPast } from "../utils/reservationLifecycle";
 
 export const AdminPanel = () => {
   const {
@@ -60,6 +62,7 @@ export const AdminPanel = () => {
   const [replyDrafts, setReplyDrafts] = useState({});
   const [replyingToId, setReplyingToId] = useState(null);
   const [isCreateMode, setIsCreateMode] = useState(false);
+  const [paymentConfig, setPaymentConfig] = useState(null);
 
   // Restaurant creation form state
   const [newRestaurantName, setNewRestaurantName] = useState("");
@@ -82,6 +85,10 @@ export const AdminPanel = () => {
   const isAdminAuthenticated =
     Boolean(localStorage.getItem("dineflow_token")) &&
     currentUser?.role === "admin";
+
+  useEffect(() => {
+    api.getPaymentConfig().then(setPaymentConfig).catch(() => {});
+  }, []);
 
   // Fetch restaurants when filter changes
   useEffect(() => {
@@ -1022,7 +1029,9 @@ export const AdminPanel = () => {
                                     : "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
                               }`}
                             >
-                              {res.status}
+                              {res.status === "cancelled" && isReservationPast(res)
+                                ? "expired"
+                                : res.status}
                             </span>
                           </td>
                           <td className="px-6 py-4">
@@ -1033,7 +1042,7 @@ export const AdminPanel = () => {
                                 paymentCurrency={res.paymentCurrency}
                                 theme="dark"
                               />
-                              {res.status === "pending" && (
+                              {canAcceptReservation(res, paymentConfig) && (
                                 <button
                                   onClick={() => handleAcceptReservation(res.id)}
                                   className="px-3 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 font-bold rounded-lg transition-all flex items-center gap-1 text-xs uppercase tracking-wider"

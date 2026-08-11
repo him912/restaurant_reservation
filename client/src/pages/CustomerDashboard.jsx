@@ -11,6 +11,11 @@ import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { canRetryPayment, getPaymentStatusLabel } from '../utils/paymentFlow';
+import {
+  getTodayDateString,
+  isPastBookingDate,
+  isPastBookingSlot,
+} from '../utils/bookingDate';
 import { formatMoney } from '../utils/currency';
 
 export const CustomerDashboard = () => {
@@ -27,6 +32,15 @@ export const CustomerDashboard = () => {
   const [editForm, setEditForm] = useState({ date: '', time: '', guests: 2 });
   const [paymentConfig, setPaymentConfig] = useState(null);
   const [payingId, setPayingId] = useState(null);
+  const todayDateStr = getTodayDateString();
+
+  const handleEditDateChange = (value) => {
+    if (value && isPastBookingDate(value)) {
+      showToast('Past dates cannot be selected. Please choose today or a future date.', 'error');
+      return;
+    }
+    setEditForm((prev) => ({ ...prev, date: value }));
+  };
 
   useEffect(() => {
     api.getPaymentConfig().then(setPaymentConfig).catch(() => {});
@@ -103,6 +117,14 @@ export const CustomerDashboard = () => {
   };
 
   const handleEditSave = async (id) => {
+    if (!editForm.date || isPastBookingDate(editForm.date)) {
+      showToast('Please choose today or a future date.', 'error');
+      return;
+    }
+    if (editForm.time && isPastBookingSlot(editForm.date, editForm.time)) {
+      showToast('This time has already passed. Please choose a future time.', 'error');
+      return;
+    }
     try {
       await updateUserReservation(id, {
         date: editForm.date,
@@ -235,8 +257,14 @@ export const CustomerDashboard = () => {
                             <div className="flex flex-col gap-2 w-full sm:min-w-[220px]">
                               <input
                                 type="date"
+                                min={todayDateStr}
                                 value={editForm.date}
-                                onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                                onChange={(e) => handleEditDateChange(e.target.value)}
+                                onBlur={(e) => {
+                                  if (e.target.value && isPastBookingDate(e.target.value)) {
+                                    handleEditDateChange('');
+                                  }
+                                }}
                                 className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
                               />
                               <input
