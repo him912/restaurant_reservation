@@ -310,6 +310,9 @@ export const api = {
       );
       return response.data?.data || response.data;
     } catch (err) {
+      if (err.response) {
+        throw err;
+      }
       console.error("Failed to update restaurant via backend:", err);
       await delay(400);
       const data = localStorage.getItem("restaurant_platform_restaurants");

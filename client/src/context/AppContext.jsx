@@ -743,7 +743,10 @@ export const AppProvider = ({ children }) => {
       showToast("Menu item added successfully.", "success");
       return updatedRestaurant;
     } catch (err) {
-      showToast("Failed to add menu item.", "error");
+      showToast(
+        err?.response?.data?.message || "Failed to add menu item.",
+        "error",
+      );
       throw err;
     }
   };
@@ -813,7 +816,10 @@ export const AppProvider = ({ children }) => {
       );
       showToast("Restaurant details updated successfully.", "success");
     } catch (err) {
-      showToast("Failed to update restaurant profile.", "error");
+      showToast(
+        err?.response?.data?.message || "Failed to update restaurant profile.",
+        "error",
+      );
       throw err;
     }
   };

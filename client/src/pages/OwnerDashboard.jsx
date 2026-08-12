@@ -27,6 +27,12 @@ import { formatMenuPrice } from "../utils/currency";
 import { PaymentStatusBadge } from "../components/PaymentStatusBadge";
 import { usePolling } from "../hooks/usePolling";
 import { sortReservationsByCreatedAt } from "../utils/sortReservations";
+import {
+  getFirstFormError,
+  validateOwnerRestaurantCreateForm,
+  validateOwnerRestaurantEditForm,
+  validateMenuItemForm,
+} from "../utils/restaurantFormValidation";
 import { api } from "../api";
 import { canAcceptReservation, isReservationPast } from "../utils/reservationLifecycle";
 import { motion } from "motion/react";
@@ -186,6 +192,96 @@ export const OwnerDashboard = () => {
   });
 
   const [activeTab, setActiveTab] = useState("bookings");
+  const [createFormKey, setCreateFormKey] = useState(0);
+  const [restaurantFormErrors, setRestaurantFormErrors] = useState({});
+  const [menuItemFormErrors, setMenuItemFormErrors] = useState({});
+
+  const clearRestaurantFormError = (field) => {
+    setRestaurantFormErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const inputErrorClass = (field) =>
+    restaurantFormErrors[field]
+      ? "border-rose-400 focus:border-rose-500"
+      : "border-slate-200 focus:border-indigo-505";
+
+  const fieldError = (field) =>
+    restaurantFormErrors[field] ? (
+      <p className="text-[10px] text-rose-600 font-semibold mt-1">{restaurantFormErrors[field]}</p>
+    ) : null;
+
+  const clearMenuItemFormError = (field) => {
+    setMenuItemFormErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const menuInputErrorClass = (field) =>
+    menuItemFormErrors[field]
+      ? "border-rose-400 focus:border-rose-500"
+      : "border-slate-200 focus:border-indigo-505";
+
+  const menuFieldError = (field) =>
+    menuItemFormErrors[field] ? (
+      <p className="text-[10px] text-rose-600 font-semibold mt-1">{menuItemFormErrors[field]}</p>
+    ) : null;
+
+  const clearMenuItemForm = () => {
+    setNewMenuItemName("");
+    setNewMenuItemDescription("");
+    setNewMenuItemCategory("Desserts");
+    setNewMenuItemPrice("");
+    setNewMenuItemImage("");
+    setNewMenuItemAvailable(true);
+    setMenuItemFormErrors({});
+  };
+
+  const clearCreateRestaurantForm = () => {
+    setNewRestaurantName("");
+    setNewRestaurantDescription("");
+    setNewRestaurantCuisine("");
+    setNewRestaurantAddress("");
+    setNewRestaurantCity("");
+    setNewRestaurantPhone("");
+    setNewRestaurantEmail("");
+    setNewRestaurantWebsite("");
+    setNewRestaurantImage("");
+    setNewRestaurantImageFile(null);
+    setNewRestaurantCapacity(20);
+    setNewRestaurantOpeningTime("09:00");
+    setNewRestaurantClosingTime("22:00");
+    setNewRestaurantPriceRange("$$");
+    setNewRestaurantFeatures([]);
+    setNewRestaurantGalleryFiles([]);
+  };
+
+  const clearEditRestaurantForm = () => {
+    setName("");
+    setDescription("");
+    setPhone("");
+    setEmail("");
+    setCapacity(20);
+    setOpeningHours("5:00 PM - 11:00 PM");
+    setSelectedFeatures([]);
+  };
+
+  const enterCreateMode = () => {
+    clearCreateRestaurantForm();
+    clearEditRestaurantForm();
+    setRestaurantFormErrors({});
+    setIsCreateMode(true);
+    setSelectedRestaurantId(null);
+    setActiveTab("profile");
+    setCreateFormKey((key) => key + 1);
+  };
 
   // Compute stats across owner restaurant bookings
   const totalBookings = ownerBookings.length;
@@ -225,6 +321,27 @@ export const OwnerDashboard = () => {
 
   const handleCreateRestaurantSubmit = async (e) => {
     e.preventDefault();
+
+    const errors = validateOwnerRestaurantCreateForm({
+      name: newRestaurantName,
+      description: newRestaurantDescription,
+      openingTime: newRestaurantOpeningTime,
+      closingTime: newRestaurantClosingTime,
+      phone: newRestaurantPhone,
+      email: newRestaurantEmail,
+      address: newRestaurantAddress,
+      city: newRestaurantCity,
+      cuisine: newRestaurantCuisine,
+      capacity: newRestaurantCapacity,
+    });
+
+    if (Object.keys(errors).length > 0) {
+      setRestaurantFormErrors(errors);
+      showToast(getFirstFormError(errors), "error");
+      return;
+    }
+
+    setRestaurantFormErrors({});
 
     const payload = {
       name: newRestaurantName.trim(),
@@ -272,6 +389,10 @@ export const OwnerDashboard = () => {
       showToast("Restaurant created successfully.", "success");
     } catch (error) {
       console.error("Create restaurant failed:", error);
+      showToast(
+        error?.response?.data?.message || "Failed to create restaurant.",
+        "error",
+      );
     }
   };
 
@@ -279,26 +400,39 @@ export const OwnerDashboard = () => {
     e.preventDefault();
     if (!restaurant) return;
 
+    const errors = validateMenuItemForm({
+      name: newMenuItemName,
+      category: newMenuItemCategory,
+      description: newMenuItemDescription,
+      price: newMenuItemPrice,
+    });
+
+    if (Object.keys(errors).length > 0) {
+      setMenuItemFormErrors(errors);
+      showToast(getFirstFormError(errors), "error");
+      return;
+    }
+
+    setMenuItemFormErrors({});
+
     const payload = {
       name: newMenuItemName.trim(),
       description: newMenuItemDescription.trim(),
       category: newMenuItemCategory.trim(),
-      price: Number(newMenuItemPrice) || 0,
+      price: Number(newMenuItemPrice),
       image: newMenuItemImage.trim(),
       available: newMenuItemAvailable,
     };
 
     try {
       await addMenuItem(restaurant.id || restaurant._id, payload);
-      setNewMenuItemName("");
-      setNewMenuItemDescription("");
-      setNewMenuItemCategory("Desserts");
-      setNewMenuItemPrice("");
-      setNewMenuItemImage("");
-      setNewMenuItemAvailable(true);
-      showToast("Menu item added successfully.", "success");
+      clearMenuItemForm();
     } catch (error) {
       console.error("Add menu item failed:", error);
+      showToast(
+        error?.response?.data?.message || "Failed to add menu item.",
+        "error",
+      );
     }
   };
 
@@ -346,6 +480,23 @@ export const OwnerDashboard = () => {
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
     if (!restaurant) return;
+
+    const errors = validateOwnerRestaurantEditForm({
+      name,
+      description,
+      openingHours,
+      phone,
+      email,
+      capacity,
+    });
+
+    if (Object.keys(errors).length > 0) {
+      setRestaurantFormErrors(errors);
+      showToast(getFirstFormError(errors), "error");
+      return;
+    }
+
+    setRestaurantFormErrors({});
 
     const [openingTimeValue, closingTimeValue] = openingHours
       .split("-")
@@ -416,13 +567,12 @@ export const OwnerDashboard = () => {
                   onChange={(e) => {
                     const value = e.target.value;
                     if (value === "__create__") {
-                      setIsCreateMode(true);
-                      setSelectedRestaurantId(null);
-                      setActiveTab("profile");
+                      enterCreateMode();
                       return;
                     }
                     setSelectedRestaurantId(value);
                     setIsCreateMode(false);
+                    setRestaurantFormErrors({});
                   }}
                   className="w-full appearance-none bg-slate-950 border border-slate-600 hover:border-indigo-400 focus:border-indigo-500 text-slate-100 rounded-xl pl-4 pr-10 py-2.5 text-sm font-semibold shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition cursor-pointer"
                   id="owner-restaurant-select"
@@ -447,27 +597,7 @@ export const OwnerDashboard = () => {
             </div>
             <button
               type="button"
-              onClick={() => {
-                setIsCreateMode(true);
-                setSelectedRestaurantId(null);
-                setActiveTab("profile");
-                setNewRestaurantName("");
-                setNewRestaurantDescription("");
-                setNewRestaurantCuisine("");
-                setNewRestaurantAddress("");
-                setNewRestaurantCity("");
-                setNewRestaurantPhone("");
-                setNewRestaurantEmail("");
-                setNewRestaurantWebsite("");
-                setNewRestaurantImage("");
-                setNewRestaurantImageFile(null);
-                setNewRestaurantCapacity(20);
-                setNewRestaurantOpeningTime("09:00");
-                setNewRestaurantClosingTime("22:00");
-                setNewRestaurantPriceRange("$$");
-                setNewRestaurantFeatures([]);
-                setNewRestaurantGalleryFiles([]);
-              }}
+              onClick={enterCreateMode}
               className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-emerald-600 transition flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-900/30"
               id="owner-add-restaurant-btn"
             >
@@ -509,7 +639,7 @@ export const OwnerDashboard = () => {
               }`}
               id="tab-btn-profile"
             >
-              My Profile Detail
+              Edit Restaurant Details
             </button>
           </div>
         </section>
@@ -750,14 +880,15 @@ export const OwnerDashboard = () => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
                 <h3 className="text-lg font-black text-slate-900">
                   {shouldShowCreateForm
-                    ? "Create New Restaurant"
-                    : "Manage Restaurant Details"}
+                    ? "Adding New Restaurant"
+                    : "Edit Restaurant Details"}
                 </h3>
                 {shouldShowCreateForm && restaurants.length > 0 && (
                   <button
                     type="button"
                     onClick={() => {
                       setIsCreateMode(false);
+                      setRestaurantFormErrors({});
                       const first = restaurants[0];
                       setSelectedRestaurantId(first.id || first._id);
                     }}
@@ -769,6 +900,7 @@ export const OwnerDashboard = () => {
               </div>
               
               <form
+                key={isCreateMode ? `create-${createFormKey}` : `edit-${selectedRestaurantId}`}
                 onSubmit={isCreateMode ? handleCreateRestaurantSubmit : handleProfileSubmit}
                 className="space-y-6"
               >
@@ -779,14 +911,20 @@ export const OwnerDashboard = () => {
                     </label>
                     <input
                       type="text"
+                      required
                       value={shouldShowCreateForm ? newRestaurantName : name}
-                      onChange={(e) =>
-                        shouldShowCreateForm
-                          ? setNewRestaurantName(e.target.value)
-                          : setName(e.target.value)
-                      }
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                      onChange={(e) => {
+                        if (shouldShowCreateForm) {
+                          setNewRestaurantName(e.target.value);
+                          clearRestaurantFormError("name");
+                        } else {
+                          setName(e.target.value);
+                          clearRestaurantFormError("name");
+                        }
+                      }}
+                      className={`w-full bg-slate-50 border rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none text-slate-900 transition-all ${inputErrorClass("name")}`}
                     />
+                    {fieldError("name")}
                   </div>
                   <div>
                     <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
@@ -794,30 +932,48 @@ export const OwnerDashboard = () => {
                     </label>
                     {shouldShowCreateForm ? (
                       <div className="grid grid-cols-2 gap-3">
-                        <input
-                          type="time"
-                          value={newRestaurantOpeningTime}
-                          onChange={(e) =>
-                            setNewRestaurantOpeningTime(e.target.value)
-                          }
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
-                        />
-                        <input
-                          type="time"
-                          value={newRestaurantClosingTime}
-                          onChange={(e) =>
-                            setNewRestaurantClosingTime(e.target.value)
-                          }
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
-                        />
+                        <div>
+                          <input
+                            type="time"
+                            required
+                            value={newRestaurantOpeningTime}
+                            onChange={(e) => {
+                              setNewRestaurantOpeningTime(e.target.value);
+                              clearRestaurantFormError("openingTime");
+                            }}
+                            className={`w-full bg-slate-50 border rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none text-slate-900 transition-all ${inputErrorClass("openingTime")}`}
+                          />
+                          {fieldError("openingTime")}
+                        </div>
+                        <div>
+                          <input
+                            type="time"
+                            required
+                            value={newRestaurantClosingTime}
+                            onChange={(e) => {
+                              setNewRestaurantClosingTime(e.target.value);
+                              clearRestaurantFormError("closingTime");
+                            }}
+                            className={`w-full bg-slate-50 border rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none text-slate-900 transition-all ${inputErrorClass("closingTime")}`}
+                          />
+                          {fieldError("closingTime")}
+                        </div>
                       </div>
                     ) : (
-                      <input
-                        type="text"
-                        value={openingHours}
-                        onChange={(e) => setOpeningHours(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
-                      />
+                      <div>
+                        <input
+                          type="text"
+                          required
+                          placeholder="9:00 AM - 10:00 PM"
+                          value={openingHours}
+                          onChange={(e) => {
+                            setOpeningHours(e.target.value);
+                            clearRestaurantFormError("openingHours");
+                          }}
+                          className={`w-full bg-slate-50 border rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none text-slate-900 transition-all ${inputErrorClass("openingHours")}`}
+                        />
+                        {fieldError("openingHours")}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -828,14 +984,20 @@ export const OwnerDashboard = () => {
                   </label>
                   <textarea
                     rows={4}
-                    value={isCreateMode ? newRestaurantDescription : description}
-                    onChange={(e) =>
-                      shouldShowCreateForm
-                        ? setNewRestaurantDescription(e.target.value)
-                        : setDescription(e.target.value)
-                    }
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-550 text-slate-900 leading-relaxed transition-all"
+                    required
+                    value={shouldShowCreateForm ? newRestaurantDescription : description}
+                    onChange={(e) => {
+                      if (shouldShowCreateForm) {
+                        setNewRestaurantDescription(e.target.value);
+                        clearRestaurantFormError("description");
+                      } else {
+                        setDescription(e.target.value);
+                        clearRestaurantFormError("description");
+                      }
+                    }}
+                    className={`w-full bg-slate-50 border rounded-xl p-3.5 text-xs font-semibold focus:outline-none text-slate-900 leading-relaxed transition-all ${inputErrorClass("description")}`}
                   ></textarea>
+                  {fieldError("description")}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -845,14 +1007,20 @@ export const OwnerDashboard = () => {
                     </label>
                     <input
                       type="text"
+                      required
                       value={shouldShowCreateForm ? newRestaurantPhone : phone}
-                      onChange={(e) =>
-                        shouldShowCreateForm
-                          ? setNewRestaurantPhone(e.target.value)
-                          : setPhone(e.target.value)
-                      }
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                      onChange={(e) => {
+                        if (shouldShowCreateForm) {
+                          setNewRestaurantPhone(e.target.value);
+                          clearRestaurantFormError("phone");
+                        } else {
+                          setPhone(e.target.value);
+                          clearRestaurantFormError("phone");
+                        }
+                      }}
+                      className={`w-full bg-slate-50 border rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none text-slate-900 transition-all ${inputErrorClass("phone")}`}
                     />
+                    {fieldError("phone")}
                   </div>
                   <div>
                     <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
@@ -860,14 +1028,20 @@ export const OwnerDashboard = () => {
                     </label>
                     <input
                       type="email"
+                      required
                       value={shouldShowCreateForm ? newRestaurantEmail : email}
-                      onChange={(e) =>
-                        shouldShowCreateForm
-                          ? setNewRestaurantEmail(e.target.value)
-                          : setEmail(e.target.value)
-                      }
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                      onChange={(e) => {
+                        if (shouldShowCreateForm) {
+                          setNewRestaurantEmail(e.target.value);
+                          clearRestaurantFormError("email");
+                        } else {
+                          setEmail(e.target.value);
+                          clearRestaurantFormError("email");
+                        }
+                      }}
+                      className={`w-full bg-slate-50 border rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none text-slate-900 transition-all ${inputErrorClass("email")}`}
                     />
+                    {fieldError("email")}
                   </div>
                   <div>
                     <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
@@ -875,14 +1049,21 @@ export const OwnerDashboard = () => {
                     </label>
                     <input
                       type="number"
+                      min="1"
+                      required
                       value={shouldShowCreateForm ? newRestaurantCapacity : capacity}
-                      onChange={(e) =>
-                        shouldShowCreateForm
-                          ? setNewRestaurantCapacity(Number(e.target.value))
-                          : setCapacity(Number(e.target.value))
-                      }
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                      onChange={(e) => {
+                        if (shouldShowCreateForm) {
+                          setNewRestaurantCapacity(Number(e.target.value));
+                          clearRestaurantFormError("capacity");
+                        } else {
+                          setCapacity(Number(e.target.value));
+                          clearRestaurantFormError("capacity");
+                        }
+                      }}
+                      className={`w-full bg-slate-50 border rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none text-slate-900 transition-all ${inputErrorClass("capacity")}`}
                     />
+                    {fieldError("capacity")}
                   </div>
                 </div>
 
@@ -894,12 +1075,15 @@ export const OwnerDashboard = () => {
                       </label>
                       <input
                         type="text"
+                        required
                         value={newRestaurantAddress}
-                        onChange={(e) =>
-                          setNewRestaurantAddress(e.target.value)
-                        }
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                        onChange={(e) => {
+                          setNewRestaurantAddress(e.target.value);
+                          clearRestaurantFormError("address");
+                        }}
+                        className={`w-full bg-slate-50 border rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none text-slate-900 transition-all ${inputErrorClass("address")}`}
                       />
+                      {fieldError("address")}
                     </div>
                     <div>
                       <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
@@ -907,10 +1091,15 @@ export const OwnerDashboard = () => {
                       </label>
                       <input
                         type="text"
+                        required
                         value={newRestaurantCity}
-                        onChange={(e) => setNewRestaurantCity(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                        onChange={(e) => {
+                          setNewRestaurantCity(e.target.value);
+                          clearRestaurantFormError("city");
+                        }}
+                        className={`w-full bg-slate-50 border rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none text-slate-900 transition-all ${inputErrorClass("city")}`}
                       />
+                      {fieldError("city")}
                     </div>
                     <div>
                       <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
@@ -989,13 +1178,16 @@ export const OwnerDashboard = () => {
                       </label>
                       <input
                         type="text"
+                        required
                         value={newRestaurantCuisine}
-                        onChange={(e) =>
-                          setNewRestaurantCuisine(e.target.value)
-                        }
+                        onChange={(e) => {
+                          setNewRestaurantCuisine(e.target.value);
+                          clearRestaurantFormError("cuisine");
+                        }}
                         placeholder="e.g. Vegan, Healthy"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                        className={`w-full bg-slate-50 border rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none text-slate-900 transition-all ${inputErrorClass("cuisine")}`}
                       />
+                      {fieldError("cuisine")}
                     </div>
                   </div>
                 )}
@@ -1099,23 +1291,23 @@ export const OwnerDashboard = () => {
                   <img
                     src={
                       isCreateMode
-                        ? newRestaurantImage || restaurant?.restaurantImage || ''
+                        ? newRestaurantImage || ''
                         : restaurant?.restaurantImage || ''
                     }
-                    alt={isCreateMode ? newRestaurantName || restaurant?.name || 'Restaurant' : restaurant?.name || 'Restaurant'}
-                    className="w-full aspect-[16/10] object-cover"
+                    alt={isCreateMode ? newRestaurantName || 'Restaurant' : restaurant?.name || 'Restaurant'}
+                    className="w-full aspect-[16/10] object-cover bg-slate-100"
                   />
                   <div className="p-4 bg-slate-50 border-t border-slate-150">
                     <span className="bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide">
                       {isCreateMode
-                        ? newRestaurantCuisine || restaurant?.cuisineType?.[0] || 'Cuisine'
+                        ? newRestaurantCuisine || 'Cuisine'
                         : restaurant?.cuisineType?.[0] || 'Cuisine'}
                     </span>
                     <h5 className="font-extrabold text-sm text-slate-900 mt-1.5 leading-tight">
                       {isCreateMode ? newRestaurantName || 'New Restaurant' : name || restaurant?.name || 'Restaurant'}
                     </h5>
                     <p className="text-slate-500 text-[11px] leading-relaxed line-clamp-3 mt-1.5">
-                      {isCreateMode ? newRestaurantDescription || restaurant?.description : description || restaurant?.description}
+                      {isCreateMode ? newRestaurantDescription : description || restaurant?.description}
                     </p>
 
                     <div className="flex gap-1.5 flex-wrap mt-3 pt-3 border-t border-slate-150">
@@ -1158,10 +1350,15 @@ export const OwnerDashboard = () => {
                         </label>
                         <input
                           type="text"
+                          required
                           value={newMenuItemName}
-                          onChange={(e) => setNewMenuItemName(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                          onChange={(e) => {
+                            setNewMenuItemName(e.target.value);
+                            clearMenuItemFormError("name");
+                          }}
+                          className={`w-full bg-slate-50 border rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none text-slate-900 transition-all ${menuInputErrorClass("name")}`}
                         />
+                        {menuFieldError("name")}
                       </div>
                       <div>
                         <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">
@@ -1169,13 +1366,16 @@ export const OwnerDashboard = () => {
                         </label>
                         <input
                           type="text"
+                          required
                           value={newMenuItemCategory}
-                          onChange={(e) =>
-                            setNewMenuItemCategory(e.target.value)
-                          }
+                          onChange={(e) => {
+                            setNewMenuItemCategory(e.target.value);
+                            clearMenuItemFormError("category");
+                          }}
                           placeholder="Desserts"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                          className={`w-full bg-slate-50 border rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none text-slate-900 transition-all ${menuInputErrorClass("category")}`}
                         />
+                        {menuFieldError("category")}
                       </div>
                     </div>
 
@@ -1185,12 +1385,15 @@ export const OwnerDashboard = () => {
                       </label>
                       <textarea
                         rows={3}
+                        required
                         value={newMenuItemDescription}
-                        onChange={(e) =>
-                          setNewMenuItemDescription(e.target.value)
-                        }
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                        onChange={(e) => {
+                          setNewMenuItemDescription(e.target.value);
+                          clearMenuItemFormError("description");
+                        }}
+                        className={`w-full bg-slate-50 border rounded-xl p-3.5 text-xs font-semibold focus:outline-none text-slate-900 transition-all ${menuInputErrorClass("description")}`}
                       />
+                      {menuFieldError("description")}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1201,10 +1404,16 @@ export const OwnerDashboard = () => {
                         <input
                           type="number"
                           step="0.01"
+                          min="0.01"
+                          required
                           value={newMenuItemPrice}
-                          onChange={(e) => setNewMenuItemPrice(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none focus:border-indigo-505 text-slate-900 transition-all"
+                          onChange={(e) => {
+                            setNewMenuItemPrice(e.target.value);
+                            clearMenuItemFormError("price");
+                          }}
+                          className={`w-full bg-slate-50 border rounded-xl py-2.5 px-3.5 text-xs font-semibold focus:outline-none text-slate-900 transition-all ${menuInputErrorClass("price")}`}
                         />
+                        {menuFieldError("price")}
                       </div>
                       <div>
                         <label className="block text-xs font-extrabold text-slate-705 uppercase tracking-wider mb-1.5">

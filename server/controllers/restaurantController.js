@@ -40,6 +40,47 @@ const uploadBufferToCloudinary = async (file) => {
   });
 };
 
+const hasText = (value) => String(value || "").trim().length > 0;
+
+const isValidEmail = (email) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim());
+
+const validateRestaurantCoreFields = ({
+  name,
+  description,
+  phone,
+  email,
+  openingTime,
+  closingTime,
+  capacity,
+  address,
+  city,
+  cuisineType,
+  requireLocation = false,
+}) => {
+  if (!hasText(name)) return "Restaurant name is required";
+  if (!hasText(description)) return "Description is required";
+  if (!hasText(openingTime)) return "Opening time is required";
+  if (!hasText(closingTime)) return "Closing time is required";
+  if (!hasText(phone)) return "Phone number is required";
+  if (!hasText(email)) return "Email is required";
+  if (!isValidEmail(email)) return "Enter a valid email address";
+
+  const parsedCapacity = Number(capacity);
+  if (!Number.isFinite(parsedCapacity) || parsedCapacity < 1) {
+    return "Seating capacity must be at least 1";
+  }
+
+  if (requireLocation) {
+    if (!hasText(address)) return "Address is required";
+    if (!hasText(city)) return "City is required";
+    const cuisines = parseArrayField(cuisineType);
+    if (!cuisines.length) return "Cuisine type is required";
+  }
+
+  return null;
+};
+
 // ================= CREATE RESTAURANT =================
 exports.createRestaurant = async (req, res) => {
   try {
@@ -68,11 +109,24 @@ exports.createRestaurant = async (req, res) => {
       resolvedRestaurantImage = await uploadBufferToCloudinary(req.file);
     }
 
-    // Validation
-    if (!name || !address || !city || !phone || !email) {
+    const validationError = validateRestaurantCoreFields({
+      name,
+      description,
+      phone,
+      email,
+      openingTime,
+      closingTime,
+      capacity,
+      address,
+      city,
+      cuisineType,
+      requireLocation: true,
+    });
+
+    if (validationError) {
       return res.status(400).json({
         success: false,
-        message: "Name, address, city, phone, and email are required",
+        message: validationError,
       });
     }
 
@@ -320,6 +374,31 @@ exports.updateRestaurant = async (req, res) => {
       });
     }
 
+    const merged = {
+      name: update.name ?? restaurant.name,
+      description: update.description ?? restaurant.description,
+      phone: update.phone ?? restaurant.phone,
+      email: update.email ?? restaurant.email,
+      openingTime: update.openingTime ?? restaurant.openingTime,
+      closingTime: update.closingTime ?? restaurant.closingTime,
+      capacity: update.capacity ?? restaurant.capacity,
+      address: update.address ?? restaurant.address,
+      city: update.city ?? restaurant.city,
+      cuisineType: update.cuisineType ?? restaurant.cuisineType,
+    };
+
+    const validationError = validateRestaurantCoreFields({
+      ...merged,
+      requireLocation: false,
+    });
+
+    if (validationError) {
+      return res.status(400).json({
+        success: false,
+        message: validationError,
+      });
+    }
+
     Object.assign(restaurant, update);
     await restaurant.save();
 
@@ -482,10 +561,36 @@ exports.addMenuItem = async (req, res) => {
       });
     }
 
-    if (!name || price === undefined) {
+    const trimmedName = String(name || "").trim();
+    const trimmedCategory = String(category || "").trim();
+    const trimmedDescription = String(description || "").trim();
+    const parsedPrice = Number(price);
+
+    if (!trimmedName) {
       return res.status(400).json({
         success: false,
-        message: "name and price are required",
+        message: "Dish name is required",
+      });
+    }
+
+    if (!trimmedCategory) {
+      return res.status(400).json({
+        success: false,
+        message: "Category is required",
+      });
+    }
+
+    if (!trimmedDescription) {
+      return res.status(400).json({
+        success: false,
+        message: "Description is required",
+      });
+    }
+
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Price must be greater than 0",
       });
     }
 
@@ -498,10 +603,10 @@ exports.addMenuItem = async (req, res) => {
     }
 
     const menuItem = {
-      name,
-      description: description || "",
-      category: category || "",
-      price,
+      name: trimmedName,
+      description: trimmedDescription,
+      category: trimmedCategory,
+      price: parsedPrice,
       image: image || "",
       available: true,
     };
