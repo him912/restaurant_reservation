@@ -38,7 +38,14 @@ const getReservedSeats = async (restaurantId, date, time) => {
 
 exports.createReservation = async (req, res) => {
   try {
-    const { restaurantId, date, time, partySize } = req.body;
+    const {
+      restaurantId,
+      date,
+      time,
+      partySize,
+      customerPhone,
+      specialRequests,
+    } = req.body;
     const userId = req.user?.id;
     const userRole = req.user?.role;
     const io = req.app.get("io");
@@ -128,6 +135,8 @@ exports.createReservation = async (req, res) => {
       status: "pending",
       paymentStatus: "unpaid",
       paymentAmount: 0,
+      customerPhone: String(customerPhone || "").trim(),
+      specialRequests: String(specialRequests || "").trim(),
     });
 
     // Broadcast availability update to all subscribed clients
@@ -175,7 +184,14 @@ exports.updateReservation = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
-    const { restaurantId, date, time, partySize } = req.body;
+    const {
+      restaurantId,
+      date,
+      time,
+      partySize,
+      customerPhone,
+      specialRequests,
+    } = req.body;
     const io = req.app.get("io");
 
     const reservation = await Reservation.findById(id);
@@ -304,10 +320,20 @@ exports.updateReservation = async (req, res) => {
     const oldDate = reservation.date.toISOString().split("T")[0];
 
     reservation.restaurantId = updatedRestaurantId;
-    reservation.restaurantImage = restaurant.image || "";
+    reservation.restaurantImage =
+      restaurant.restaurantImage ||
+      restaurant.image ||
+      reservation.restaurantImage ||
+      "";
     reservation.date = updatedDate;
     reservation.time = updatedTime;
     reservation.partySize = updatedPartySize;
+    if (customerPhone !== undefined) {
+      reservation.customerPhone = String(customerPhone).trim();
+    }
+    if (specialRequests !== undefined) {
+      reservation.specialRequests = String(specialRequests).trim();
+    }
     if (status) {
       reservation.status = status;
     }
@@ -323,10 +349,13 @@ exports.updateReservation = async (req, res) => {
       );
     }
 
+    const updatedReservation = await Reservation.findById(reservation._id)
+      .populate("restaurantId", "name cuisineType restaurantImage image");
+
     res.status(200).json({
       success: true,
       message: "Reservation updated successfully",
-      data: reservation,
+      data: updatedReservation,
     });
   } catch (error) {
     res.status(500).json({

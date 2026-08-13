@@ -112,8 +112,17 @@ const normalizeReservation = (reservation) => {
     restaurantId,
     restaurantName: reservation.restaurantName || restaurant.name || "",
     restaurantCuisine:
-      reservation.restaurantCuisine || restaurant.cuisine || "",
-    restaurantImage: reservation.restaurantImage || restaurant.image || "",
+      reservation.restaurantCuisine ||
+      restaurant.cuisine ||
+      (Array.isArray(restaurant.cuisineType)
+        ? restaurant.cuisineType[0]
+        : restaurant.cuisineType) ||
+      "",
+    restaurantImage:
+      reservation.restaurantImage ||
+      restaurant.restaurantImage ||
+      restaurant.image ||
+      "",
     customerName: fallbackCustomerName,
     customerEmail: fallbackCustomerEmail,
     customerPhone: reservation.customerPhone || "",
@@ -822,6 +831,8 @@ export const api = {
       date: res.date,
       time: formatTimeForApi(res.time),
       partySize: res.partySize ?? res.guests ?? 1,
+      customerPhone: res.customerPhone || "",
+      specialRequests: res.specialRequests || "",
     };
 
     console.log("Creating reservation with payload:", payload);
@@ -942,14 +953,20 @@ export const api = {
     }
   },
 
-  updateReservation: async (id, update) => {
+  updateReservation: async (id, update, previous = null) => {
     const payload = {
       ...(update.restaurantId ? { restaurantId: update.restaurantId } : {}),
       ...(update.date ? { date: update.date } : {}),
-      ...(update.time ? { time: update.time } : {}),
+      ...(update.time ? { time: formatTimeForApi(update.time) } : {}),
       ...(update.guests ? { partySize: update.guests } : {}),
       ...(update.partySize ? { partySize: update.partySize } : {}),
       ...(update.status ? { status: mapStatusToApi(update.status) } : {}),
+      ...(update.customerPhone !== undefined
+        ? { customerPhone: update.customerPhone }
+        : {}),
+      ...(update.specialRequests !== undefined
+        ? { specialRequests: update.specialRequests }
+        : {}),
     };
 
     try {
@@ -958,7 +975,28 @@ export const api = {
         payload,
         getAuthConfig(),
       );
-      return normalizeReservation(response.data?.data || response.data);
+      const normalized = normalizeReservation(response.data?.data || response.data);
+      if (!previous) return normalized;
+      return {
+        ...previous,
+        ...normalized,
+        restaurantName: normalized.restaurantName || previous.restaurantName || "",
+        restaurantCuisine:
+          normalized.restaurantCuisine || previous.restaurantCuisine || "",
+        restaurantImage:
+          normalized.restaurantImage || previous.restaurantImage || "",
+        customerName: normalized.customerName || previous.customerName || "",
+        customerEmail: normalized.customerEmail || previous.customerEmail || "",
+        customerPhone: normalized.customerPhone || previous.customerPhone || "",
+        paymentStatus: normalized.paymentStatus || previous.paymentStatus || "unpaid",
+        paymentAmount: normalized.paymentAmount ?? previous.paymentAmount ?? 0,
+        paymentCurrency:
+          normalized.paymentCurrency || previous.paymentCurrency || "inr",
+        specialRequests:
+          normalized.specialRequests || previous.specialRequests || "",
+        guests: normalized.guests || normalized.partySize || previous.guests,
+        partySize: normalized.partySize || normalized.guests || previous.partySize,
+      };
     } catch (err) {
       if (err.response) {
         throw err;

@@ -70,3 +70,39 @@ export const isPastBookingSlot = (dateStr, time) => {
   );
   return slotDateTime.getTime() < Date.now();
 };
+
+export const formatTimeForApi = (time) => {
+  const raw = String(time || "").trim();
+  if (!raw) return "";
+
+  if (/^\d{1,2}:\d{2}$/.test(raw)) {
+    const [hours, minutes] = raw.split(":");
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+
+  const match = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+  if (!match) return raw;
+
+  let hours = Number(match[1]);
+  const minutes = match[2] ? Number(match[2]) : 0;
+  const meridiem = match[3].toUpperCase();
+
+  if (meridiem === "PM" && hours < 12) hours += 12;
+  if (meridiem === "AM" && hours === 12) hours = 0;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+};
+
+export const toTimeInputValue = (time) => formatTimeForApi(time);
+
+export const formatTimeForDisplay = (time) => {
+  const apiTime = formatTimeForApi(time);
+  if (!apiTime) return time || "";
+
+  const [hours24, minutes] = apiTime.split(":").map(Number);
+  const meridiem = hours24 >= 12 ? "PM" : "AM";
+  let hours12 = hours24 % 12;
+  if (hours12 === 0) hours12 = 12;
+
+  return `${hours12}:${String(minutes).padStart(2, "0")} ${meridiem}`;
+};

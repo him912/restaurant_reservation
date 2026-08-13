@@ -6,7 +6,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { RatingStars } from '../components/RatingStars';
-import { Calendar, Clock, Users, Ban, Sparkles, Star, History, BookmarkCheck, UtensilsCrossed, CreditCard } from 'lucide-react';
+import { Calendar, Clock, Users, Ban, Sparkles, Star, History, BookmarkCheck, UtensilsCrossed, CreditCard, Phone, MessageSquare } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
@@ -25,9 +25,12 @@ import {
   isDateWithinBookingWindow,
   isPastBookingSlot,
   BOOKING_WINDOW_MONTHS,
+  toTimeInputValue,
+  formatTimeForDisplay,
 } from '../utils/bookingDate';
 import { getReservationDateTime, isReservationPast } from '../utils/reservationLifecycle';
 import { formatMoney } from '../utils/currency';
+import { isValidPhone } from '../utils/contactValidation';
 
 export const CustomerDashboard = () => {
   const {
@@ -41,7 +44,13 @@ export const CustomerDashboard = () => {
     showToast,
   } = useApp();
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ date: '', time: '', guests: 2 });
+  const [editForm, setEditForm] = useState({
+    date: '',
+    time: '',
+    guests: 2,
+    customerPhone: '',
+    specialRequests: '',
+  });
   const [paymentConfig, setPaymentConfig] = useState(null);
   const [payingId, setPayingId] = useState(null);
   const todayDateStr = getTodayDateString();
@@ -164,8 +173,21 @@ export const CustomerDashboard = () => {
     setEditingId(reservation.id);
     setEditForm({
       date: reservation.date || '',
-      time: reservation.time || '',
+      time: toTimeInputValue(reservation.time || ''),
       guests: reservation.guests || reservation.partySize || 2,
+      customerPhone: reservation.customerPhone || currentUser?.phone || '',
+      specialRequests: reservation.specialRequests || '',
+    });
+  };
+
+  const handleEditCancel = () => {
+    setEditingId(null);
+    setEditForm({
+      date: '',
+      time: '',
+      guests: 2,
+      customerPhone: '',
+      specialRequests: '',
     });
   };
 
@@ -181,13 +203,23 @@ export const CustomerDashboard = () => {
       showToast('This time has already passed. Please choose a future time.', 'error');
       return;
     }
+    if (!editForm.customerPhone.trim()) {
+      showToast('Please enter your contact phone number.', 'error');
+      return;
+    }
+    if (!isValidPhone(editForm.customerPhone)) {
+      showToast('Please enter a valid phone number (at least 10 digits).', 'error');
+      return;
+    }
     try {
       await updateUserReservation(id, {
         date: editForm.date,
         time: editForm.time,
         guests: Number(editForm.guests),
+        customerPhone: editForm.customerPhone.trim(),
+        specialRequests: editForm.specialRequests.trim(),
       });
-      setEditingId(null);
+      handleEditCancel();
     } catch (err) {
       console.error(err);
     }
@@ -309,51 +341,7 @@ export const CustomerDashboard = () => {
 
                         {/* Timing particulars */}
                         <div className="grid grid-cols-3 sm:flex items-center gap-4 sm:gap-6 text-xs text-slate-655 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
-                          {editingId === res.id ? (
-                            <div className="flex flex-col gap-2 w-full sm:min-w-[220px]">
-                              <input
-                                type="date"
-                                min={todayDateStr}
-                                max={maxBookingDateStr}
-                                value={editForm.date}
-                                onChange={(e) => handleEditDateChange(e.target.value)}
-                                onBlur={(e) => {
-                                  const value = e.target.value;
-                                  if (value && !isDateWithinBookingWindow(value)) {
-                                    handleEditDateChange('');
-                                  }
-                                }}
-                                className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
-                              />
-                              <input
-                                type="time"
-                                value={editForm.time}
-                                onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
-                                className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
-                              />
-                              <input
-                                type="number"
-                                min="1"
-                                value={editForm.guests}
-                                onChange={(e) => setEditForm({ ...editForm, guests: e.target.value })}
-                                className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
-                              />
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleEditSave(res.id)}
-                                  className="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-2.5 py-1 rounded-lg"
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  onClick={() => setEditingId(null)}
-                                  className="text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
+                          {editingId !== res.id && (
                             <>
                               <div>
                                 <div className="flex items-center gap-1 text-slate-400 font-bold text-[9px] uppercase">
@@ -370,7 +358,7 @@ export const CustomerDashboard = () => {
                                   <Clock size={11} className="text-slate-400" />
                                   <span>Time</span>
                                 </div>
-                                <span className="font-extrabold text-slate-805 block mt-0.5">{res.time}</span>
+                                <span className="font-extrabold text-slate-805 block mt-0.5">{formatTimeForDisplay(res.time)}</span>
                               </div>
 
                               <div>
@@ -383,6 +371,101 @@ export const CustomerDashboard = () => {
                             </>
                           )}
                         </div>
+
+                        {editingId !== res.id && (res.customerPhone || res.specialRequests) && (
+                          <div className="mt-3 pt-3 border-t border-slate-100 space-y-2 text-xs">
+                            {res.customerPhone && (
+                              <div className="flex items-start gap-2 text-slate-600">
+                                <Phone size={12} className="text-slate-400 shrink-0 mt-0.5" />
+                                <span className="font-semibold">{res.customerPhone}</span>
+                              </div>
+                            )}
+                            {res.specialRequests && (
+                              <div className="flex items-start gap-2 text-slate-600">
+                                <MessageSquare size={12} className="text-slate-400 shrink-0 mt-0.5" />
+                                <span className="font-medium leading-relaxed">{res.specialRequests}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {editingId === res.id && (
+                          <div className="mt-4 pt-4 border-t border-slate-100 w-full">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">
+                              Edit reservation details
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[9px] font-bold uppercase text-slate-400 mb-1">Date</label>
+                                <input
+                                  type="date"
+                                  min={todayDateStr}
+                                  max={maxBookingDateStr}
+                                  value={editForm.date}
+                                  onChange={(e) => handleEditDateChange(e.target.value)}
+                                  className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] font-bold uppercase text-slate-400 mb-1">Time</label>
+                                <input
+                                  type="time"
+                                  value={editForm.time}
+                                  onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
+                                  className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] font-bold uppercase text-slate-400 mb-1">Guests</label>
+                                <select
+                                  value={editForm.guests}
+                                  onChange={(e) => setEditForm({ ...editForm, guests: Number(e.target.value) })}
+                                  className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold bg-white"
+                                >
+                                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                                    <option key={n} value={n}>{n} {n === 1 ? 'Guest' : 'Guests'}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-[9px] font-bold uppercase text-slate-400 mb-1">Phone</label>
+                                <input
+                                  type="tel"
+                                  value={editForm.customerPhone}
+                                  onChange={(e) => setEditForm({ ...editForm, customerPhone: e.target.value })}
+                                  placeholder="Contact number"
+                                  className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold"
+                                />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <label className="block text-[9px] font-bold uppercase text-slate-400 mb-1">
+                                  Special requests / accommodations
+                                </label>
+                                <textarea
+                                  rows={3}
+                                  value={editForm.specialRequests}
+                                  onChange={(e) => setEditForm({ ...editForm, specialRequests: e.target.value })}
+                                  placeholder="E.g. wheelchair access, outdoor seating, allergies, celebration notes..."
+                                  className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-medium leading-relaxed resize-y"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex gap-2 mt-3">
+                              <button
+                                onClick={() => handleEditSave(res.id)}
+                                className="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-2 rounded-lg"
+                              >
+                                Save changes
+                              </button>
+                              <button
+                                onClick={handleEditCancel}
+                                className="text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Status badge & cancel triggers */}
                         <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
@@ -498,7 +581,7 @@ export const CustomerDashboard = () => {
                             {res.status === 'cancelled'
                               ? `Cancelled · ${new Date(res.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
                               : `Dined on ${new Date(res.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
-                            {res.time ? ` at ${res.time}` : ''}
+                            {res.time ? ` at ${formatTimeForDisplay(res.time)}` : ''}
                           </span>
                         </div>
                       </div>

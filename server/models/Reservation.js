@@ -72,6 +72,14 @@ const reservationSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    customerPhone: {
+      type: String,
+      default: "",
+    },
+    specialRequests: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,

@@ -631,9 +631,10 @@ export const AppProvider = ({ children }) => {
 
   const updateUserReservation = async (id, updates) => {
     try {
-      const updated = await api.updateReservation(id, updates);
+      const previous = reservations.find((r) => r.id === id);
+      const updated = await api.updateReservation(id, updates, previous);
       setReservations((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, ...updated } : r)),
+        prev.map((r) => (r.id === id ? updated : r)),
       );
       showToast("Reservation updated successfully.", "success");
       return updated;
