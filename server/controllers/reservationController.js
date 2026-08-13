@@ -11,6 +11,11 @@ const {
   isBeyondBookingWindow,
   findActiveUserRestaurantReservation,
 } = require("../utils/bookingRules");
+const {
+  validateReservationContactFields,
+  validatePartySize,
+  validateReservationDateTime,
+} = require("../utils/reservationValidation");
 
 const parseDate = (dateString) => {
   if (!dateString) return null;
@@ -103,6 +108,20 @@ exports.createReservation = async (req, res) => {
         success: false,
         message: "Bookings can only be made up to 2 months in advance",
       });
+    }
+
+    const contactError = validateReservationContactFields({
+      customerPhone,
+      specialRequests,
+      requirePhone: true,
+    });
+    if (contactError) {
+      return res.status(400).json({ success: false, message: contactError });
+    }
+
+    const partySizeError = validatePartySize(partySize, restaurant.capacity);
+    if (partySizeError) {
+      return res.status(400).json({ success: false, message: partySizeError });
     }
 
     const existingActiveReservation = await findActiveUserRestaurantReservation(
@@ -266,19 +285,38 @@ exports.updateReservation = async (req, res) => {
       date: updatedDate,
       time: updatedTime,
     });
-    if (!updatedBookingDateTime || updatedBookingDateTime.getTime() <= Date.now()) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot book for a past date or time",
-      });
+    const dateStrForWindow = date || updatedDate.toISOString().split("T")[0];
+
+    const dateTimeError = validateReservationDateTime({
+      date: updatedDate,
+      time: updatedTime,
+      dateStr: dateStrForWindow,
+    });
+    if (dateTimeError) {
+      return res.status(400).json({ success: false, message: dateTimeError });
     }
 
-    const dateStrForWindow = date || updatedDate.toISOString().split("T")[0];
-    if (isBeyondBookingWindow(dateStrForWindow)) {
-      return res.status(400).json({
-        success: false,
-        message: "Bookings can only be made up to 2 months in advance",
-      });
+    const contactError = validateReservationContactFields({
+      customerPhone:
+        customerPhone !== undefined
+          ? customerPhone
+          : reservation.customerPhone,
+      specialRequests:
+        specialRequests !== undefined
+          ? specialRequests
+          : reservation.specialRequests,
+      requirePhone: true,
+    });
+    if (contactError) {
+      return res.status(400).json({ success: false, message: contactError });
+    }
+
+    const partySizeError = validatePartySize(
+      updatedPartySize,
+      restaurant.capacity,
+    );
+    if (partySizeError) {
+      return res.status(400).json({ success: false, message: partySizeError });
     }
 
     const effectiveStatus = status || reservation.status;

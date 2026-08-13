@@ -22,15 +22,17 @@ import {
   getMaxBookingDateString,
   isPastBookingDate,
   isBeyondBookingWindow,
-  isDateWithinBookingWindow,
-  isPastBookingSlot,
   BOOKING_WINDOW_MONTHS,
   toTimeInputValue,
   formatTimeForDisplay,
 } from '../utils/bookingDate';
 import { getReservationDateTime, isReservationPast } from '../utils/reservationLifecycle';
 import { formatMoney } from '../utils/currency';
-import { isValidPhone } from '../utils/contactValidation';
+import {
+  validateReservationEditForm,
+  getFirstFormError,
+  MAX_SPECIAL_REQUESTS_LENGTH,
+} from '../utils/reservationFormValidation';
 
 export const CustomerDashboard = () => {
   const {
@@ -51,23 +53,47 @@ export const CustomerDashboard = () => {
     customerPhone: '',
     specialRequests: '',
   });
+  const [editFormErrors, setEditFormErrors] = useState({});
   const [paymentConfig, setPaymentConfig] = useState(null);
   const [payingId, setPayingId] = useState(null);
   const todayDateStr = getTodayDateString();
   const maxBookingDateStr = getMaxBookingDateString();
 
+  const clearEditFormError = (field) => {
+    setEditFormErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const editInputErrorClass = (field) =>
+    editFormErrors[field]
+      ? 'border-rose-400 focus:border-rose-500'
+      : 'border-slate-200 focus:border-indigo-500';
+
+  const editFieldError = (field) =>
+    editFormErrors[field] ? (
+      <p className="text-[10px] text-rose-600 font-semibold mt-1">{editFormErrors[field]}</p>
+    ) : null;
+
   const handleEditDateChange = (value) => {
     if (value && isPastBookingDate(value)) {
-      showToast('Past dates cannot be selected. Please choose today or a future date.', 'error');
+      setEditFormErrors((prev) => ({
+        ...prev,
+        date: 'Past dates cannot be selected. Please choose today or a future date.',
+      }));
       return;
     }
     if (value && isBeyondBookingWindow(value)) {
-      showToast(
-        `Bookings can only be made up to ${BOOKING_WINDOW_MONTHS} months in advance.`,
-        'error',
-      );
+      setEditFormErrors((prev) => ({
+        ...prev,
+        date: `Choose a date within the next ${BOOKING_WINDOW_MONTHS} months.`,
+      }));
       return;
     }
+    clearEditFormError('date');
     setEditForm((prev) => ({ ...prev, date: value }));
   };
 
@@ -171,6 +197,7 @@ export const CustomerDashboard = () => {
     }
 
     setEditingId(reservation.id);
+    setEditFormErrors({});
     setEditForm({
       date: reservation.date || '',
       time: toTimeInputValue(reservation.time || ''),
@@ -182,6 +209,7 @@ export const CustomerDashboard = () => {
 
   const handleEditCancel = () => {
     setEditingId(null);
+    setEditFormErrors({});
     setEditForm({
       date: '',
       time: '',
@@ -192,25 +220,13 @@ export const CustomerDashboard = () => {
   };
 
   const handleEditSave = async (id) => {
-    if (!editForm.date || !isDateWithinBookingWindow(editForm.date)) {
-      showToast(
-        `Please choose a date between today and ${BOOKING_WINDOW_MONTHS} months from now.`,
-        'error',
-      );
+    const errors = validateReservationEditForm(editForm, { maxGuests: 10 });
+    if (Object.keys(errors).length > 0) {
+      setEditFormErrors(errors);
+      showToast(getFirstFormError(errors), 'error');
       return;
     }
-    if (editForm.time && isPastBookingSlot(editForm.date, editForm.time)) {
-      showToast('This time has already passed. Please choose a future time.', 'error');
-      return;
-    }
-    if (!editForm.customerPhone.trim()) {
-      showToast('Please enter your contact phone number.', 'error');
-      return;
-    }
-    if (!isValidPhone(editForm.customerPhone)) {
-      showToast('Please enter a valid phone number (at least 10 digits).', 'error');
-      return;
-    }
+
     try {
       await updateUserReservation(id, {
         date: editForm.date,
@@ -399,43 +415,59 @@ export const CustomerDashboard = () => {
                                 <label className="block text-[9px] font-bold uppercase text-slate-400 mb-1">Date</label>
                                 <input
                                   type="date"
+                                  required
                                   min={todayDateStr}
                                   max={maxBookingDateStr}
                                   value={editForm.date}
                                   onChange={(e) => handleEditDateChange(e.target.value)}
-                                  className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold"
+                                  className={`w-full rounded-lg border px-2.5 py-2 text-xs font-semibold focus:outline-none ${editInputErrorClass('date')}`}
                                 />
+                                {editFieldError('date')}
                               </div>
                               <div>
                                 <label className="block text-[9px] font-bold uppercase text-slate-400 mb-1">Time</label>
                                 <input
                                   type="time"
+                                  required
                                   value={editForm.time}
-                                  onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
-                                  className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold"
+                                  onChange={(e) => {
+                                    clearEditFormError('time');
+                                    setEditForm({ ...editForm, time: e.target.value });
+                                  }}
+                                  className={`w-full rounded-lg border px-2.5 py-2 text-xs font-semibold focus:outline-none ${editInputErrorClass('time')}`}
                                 />
+                                {editFieldError('time')}
                               </div>
                               <div>
                                 <label className="block text-[9px] font-bold uppercase text-slate-400 mb-1">Guests</label>
                                 <select
                                   value={editForm.guests}
-                                  onChange={(e) => setEditForm({ ...editForm, guests: Number(e.target.value) })}
-                                  className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold bg-white"
+                                  onChange={(e) => {
+                                    clearEditFormError('guests');
+                                    setEditForm({ ...editForm, guests: Number(e.target.value) });
+                                  }}
+                                  className={`w-full rounded-lg border px-2.5 py-2 text-xs font-semibold bg-white focus:outline-none ${editInputErrorClass('guests')}`}
                                 >
                                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                                     <option key={n} value={n}>{n} {n === 1 ? 'Guest' : 'Guests'}</option>
                                   ))}
                                 </select>
+                                {editFieldError('guests')}
                               </div>
                               <div>
                                 <label className="block text-[9px] font-bold uppercase text-slate-400 mb-1">Phone</label>
                                 <input
                                   type="tel"
+                                  required
                                   value={editForm.customerPhone}
-                                  onChange={(e) => setEditForm({ ...editForm, customerPhone: e.target.value })}
+                                  onChange={(e) => {
+                                    clearEditFormError('customerPhone');
+                                    setEditForm({ ...editForm, customerPhone: e.target.value });
+                                  }}
                                   placeholder="Contact number"
-                                  className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold"
+                                  className={`w-full rounded-lg border px-2.5 py-2 text-xs font-semibold focus:outline-none ${editInputErrorClass('customerPhone')}`}
                                 />
+                                {editFieldError('customerPhone')}
                               </div>
                               <div className="sm:col-span-2">
                                 <label className="block text-[9px] font-bold uppercase text-slate-400 mb-1">
@@ -443,11 +475,16 @@ export const CustomerDashboard = () => {
                                 </label>
                                 <textarea
                                   rows={3}
+                                  maxLength={MAX_SPECIAL_REQUESTS_LENGTH}
                                   value={editForm.specialRequests}
-                                  onChange={(e) => setEditForm({ ...editForm, specialRequests: e.target.value })}
+                                  onChange={(e) => {
+                                    clearEditFormError('specialRequests');
+                                    setEditForm({ ...editForm, specialRequests: e.target.value });
+                                  }}
                                   placeholder="E.g. wheelchair access, outdoor seating, allergies, celebration notes..."
-                                  className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-medium leading-relaxed resize-y"
+                                  className={`w-full rounded-lg border px-2.5 py-2 text-xs font-medium leading-relaxed resize-y focus:outline-none ${editInputErrorClass('specialRequests')}`}
                                 />
+                                {editFieldError('specialRequests')}
                               </div>
                             </div>
                             <div className="flex gap-2 mt-3">
