@@ -18,17 +18,36 @@ const parseBookingTimeParts = (time) => {
   return null;
 };
 
-export const getTodayDateString = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
+export const BOOKING_WINDOW_MONTHS = 2;
+
+const formatDateString = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+};
+
+export const getTodayDateString = () => formatDateString(new Date());
+
+export const getMaxBookingDateString = () => {
+  const maxDate = new Date();
+  maxDate.setMonth(maxDate.getMonth() + BOOKING_WINDOW_MONTHS);
+  return formatDateString(maxDate);
 };
 
 export const isPastBookingDate = (dateStr) => {
   if (!dateStr) return false;
   return dateStr < getTodayDateString();
+};
+
+export const isBeyondBookingWindow = (dateStr) => {
+  if (!dateStr) return false;
+  return dateStr > getMaxBookingDateString();
+};
+
+export const isDateWithinBookingWindow = (dateStr) => {
+  if (!dateStr) return false;
+  return !isPastBookingDate(dateStr) && !isBeyondBookingWindow(dateStr);
 };
 
 export const isPastBookingSlot = (dateStr, time) => {

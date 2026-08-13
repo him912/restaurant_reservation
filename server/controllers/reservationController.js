@@ -7,6 +7,10 @@ const {
   getReservationDateTime,
   isReservationPast,
 } = require("../utils/reservationLifecycle");
+const {
+  isBeyondBookingWindow,
+  findActiveUserRestaurantReservation,
+} = require("../utils/bookingRules");
 
 const parseDate = (dateString) => {
   if (!dateString) return null;
@@ -84,6 +88,25 @@ exports.createReservation = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Cannot book for a past date or time",
+      });
+    }
+
+    if (isBeyondBookingWindow(date)) {
+      return res.status(400).json({
+        success: false,
+        message: "Bookings can only be made up to 2 months in advance",
+      });
+    }
+
+    const existingActiveReservation = await findActiveUserRestaurantReservation(
+      userId,
+      restaurantId,
+    );
+    if (existingActiveReservation) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "You already have an active reservation at this restaurant. Cancel or wait until it is completed before booking again.",
       });
     }
 
@@ -223,7 +246,41 @@ exports.updateReservation = async (req, res) => {
       });
     }
 
+    const updatedBookingDateTime = getReservationDateTime({
+      date: updatedDate,
+      time: updatedTime,
+    });
+    if (!updatedBookingDateTime || updatedBookingDateTime.getTime() <= Date.now()) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot book for a past date or time",
+      });
+    }
+
+    const dateStrForWindow = date || updatedDate.toISOString().split("T")[0];
+    if (isBeyondBookingWindow(dateStrForWindow)) {
+      return res.status(400).json({
+        success: false,
+        message: "Bookings can only be made up to 2 months in advance",
+      });
+    }
+
     const effectiveStatus = status || reservation.status;
+    if (["pending", "reserved"].includes(effectiveStatus)) {
+      const existingActiveReservation = await findActiveUserRestaurantReservation(
+        userId,
+        updatedRestaurantId,
+        reservation._id,
+      );
+      if (existingActiveReservation) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "You already have an active reservation at this restaurant. Cancel or wait until it is completed before booking again.",
+        });
+      }
+    }
+
     if (effectiveStatus === "reserved") {
       let reservedSeats = await getReservedSeats(
         updatedRestaurantId,

@@ -18,12 +18,15 @@ import {
   isPaidAndConfirmed,
 } from '../utils/paymentFlow';
 import {
-  getReservationDateTime,
   getTodayDateString,
+  getMaxBookingDateString,
   isPastBookingDate,
+  isBeyondBookingWindow,
+  isDateWithinBookingWindow,
   isPastBookingSlot,
+  BOOKING_WINDOW_MONTHS,
 } from '../utils/bookingDate';
-import { isReservationPast } from '../utils/reservationLifecycle';
+import { getReservationDateTime, isReservationPast } from '../utils/reservationLifecycle';
 import { formatMoney } from '../utils/currency';
 
 export const CustomerDashboard = () => {
@@ -42,10 +45,18 @@ export const CustomerDashboard = () => {
   const [paymentConfig, setPaymentConfig] = useState(null);
   const [payingId, setPayingId] = useState(null);
   const todayDateStr = getTodayDateString();
+  const maxBookingDateStr = getMaxBookingDateString();
 
   const handleEditDateChange = (value) => {
     if (value && isPastBookingDate(value)) {
       showToast('Past dates cannot be selected. Please choose today or a future date.', 'error');
+      return;
+    }
+    if (value && isBeyondBookingWindow(value)) {
+      showToast(
+        `Bookings can only be made up to ${BOOKING_WINDOW_MONTHS} months in advance.`,
+        'error',
+      );
       return;
     }
     setEditForm((prev) => ({ ...prev, date: value }));
@@ -159,8 +170,11 @@ export const CustomerDashboard = () => {
   };
 
   const handleEditSave = async (id) => {
-    if (!editForm.date || isPastBookingDate(editForm.date)) {
-      showToast('Please choose today or a future date.', 'error');
+    if (!editForm.date || !isDateWithinBookingWindow(editForm.date)) {
+      showToast(
+        `Please choose a date between today and ${BOOKING_WINDOW_MONTHS} months from now.`,
+        'error',
+      );
       return;
     }
     if (editForm.time && isPastBookingSlot(editForm.date, editForm.time)) {
@@ -300,10 +314,12 @@ export const CustomerDashboard = () => {
                               <input
                                 type="date"
                                 min={todayDateStr}
+                                max={maxBookingDateStr}
                                 value={editForm.date}
                                 onChange={(e) => handleEditDateChange(e.target.value)}
                                 onBlur={(e) => {
-                                  if (e.target.value && isPastBookingDate(e.target.value)) {
+                                  const value = e.target.value;
+                                  if (value && !isDateWithinBookingWindow(value)) {
                                     handleEditDateChange('');
                                   }
                                 }}

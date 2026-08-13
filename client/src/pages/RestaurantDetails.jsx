@@ -12,8 +12,12 @@ import { api } from '../api';
 import { formatDepositTotal, formatMenuPrice } from '../utils/currency';
 import { processReservationPayment } from '../utils/paymentFlow';
 import {
+  BOOKING_WINDOW_MONTHS,
   getTodayDateString,
+  getMaxBookingDateString,
   isPastBookingDate,
+  isBeyondBookingWindow,
+  isDateWithinBookingWindow,
   isPastBookingSlot,
 } from '../utils/bookingDate';
 import {
@@ -68,7 +72,7 @@ export const RestaurantDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { currentUser, addNewReservation, updateReservationInState, showToast, openAuthModal } = useApp();
+  const { currentUser, reservations, addNewReservation, updateReservationInState, showToast, openAuthModal } = useApp();
 
   const isStaffUser =
     currentUser?.role === "admin" ||
@@ -196,10 +200,29 @@ export const RestaurantDetails = () => {
   }, [id, bookingDate]);
 
   const todayDateStr = getTodayDateString();
+  const maxBookingDateStr = getMaxBookingDateString();
+
+  const activeRestaurantReservation = useMemo(() => {
+    if (!id || !reservations?.length) return null;
+    return reservations.find(
+      (reservation) =>
+        String(reservation.restaurantId) === String(id) &&
+        (reservation.status === "pending" || reservation.status === "confirmed"),
+    );
+  }, [reservations, id]);
+
+  const hasActiveBooking = Boolean(activeRestaurantReservation);
 
   const handleBookingDateChange = (value) => {
     if (value && isPastBookingDate(value)) {
       showToast('Past dates cannot be selected. Please choose today or a future date.', 'error');
+      return;
+    }
+    if (value && isBeyondBookingWindow(value)) {
+      showToast(
+        `Bookings can only be made up to ${BOOKING_WINDOW_MONTHS} months in advance.`,
+        'error',
+      );
       return;
     }
     setBookingDate(value);
@@ -270,8 +293,18 @@ export const RestaurantDetails = () => {
       showToast('Please select a dining date.', 'error');
       return;
     }
-    if (isPastBookingDate(bookingDate)) {
-      showToast('Please choose today or a future date.', 'error');
+    if (!isDateWithinBookingWindow(bookingDate)) {
+      showToast(
+        `Please choose a date between today and ${BOOKING_WINDOW_MONTHS} months from now.`,
+        'error',
+      );
+      return;
+    }
+    if (hasActiveBooking) {
+      showToast(
+        'You already have an active reservation at this restaurant. Cancel it from My Reservations before booking again.',
+        'error',
+      );
       return;
     }
     if (!bookingTime) {
@@ -1088,6 +1121,22 @@ export const RestaurantDetails = () => {
                 </div>
               ) : currentUser ? (
                 <form onSubmit={handleBookingSubmit} className="space-y-4">
+                  {hasActiveBooking && (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-100 leading-relaxed">
+                      You already have an active reservation at this restaurant (
+                      {activeRestaurantReservation?.status === "pending"
+                        ? "awaiting approval"
+                        : "confirmed"}
+                      ).{" "}
+                      <Link
+                        to="/dashboard"
+                        className="font-bold text-amber-200 underline hover:text-white"
+                      >
+                        View in My Reservations
+                      </Link>{" "}
+                      to cancel or manage it before booking again.
+                    </div>
+                  )}
                   {/* Pre-fill User Card Display */}
                   <div className="bg-slate-955/40 border border-slate-855 rounded-2xl p-3.5 flex items-center gap-3 bg-indigo-950/15">
                     <div className="w-8 h-8 rounded-full bg-slate-850 flex items-center justify-center text-slate-200 font-bold text-xs uppercase border border-slate-705">
@@ -1109,10 +1158,12 @@ export const RestaurantDetails = () => {
                       <input
                         type="date"
                         min={todayDateStr}
+                        max={maxBookingDateStr}
                         value={bookingDate}
                         onChange={(e) => handleBookingDateChange(e.target.value)}
                         onBlur={(e) => {
-                          if (e.target.value && isPastBookingDate(e.target.value)) {
+                          const value = e.target.value;
+                          if (value && !isDateWithinBookingWindow(value)) {
                             handleBookingDateChange('');
                           }
                         }}
@@ -1121,6 +1172,9 @@ export const RestaurantDetails = () => {
                         aria-label="Select booking date"
                       />
                     </div>
+                    <p className="text-[10px] text-slate-500 mt-1 font-semibold">
+                      Book from today through {maxBookingDateStr} ({BOOKING_WINDOW_MONTHS}-month window)
+                    </p>
                   </div>
 
                   {/* Party Guest Size select */}
@@ -1212,8 +1266,8 @@ export const RestaurantDetails = () => {
                   <div className="pt-2">
                     <button
                       type="submit"
-                      disabled={bookingLoading}
-                      className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs tracking-wider rounded-xl hover:shadow-lg hover:shadow-indigo-950/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      disabled={bookingLoading || hasActiveBooking}
+                      className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs tracking-wider rounded-xl hover:shadow-lg hover:shadow-indigo-950/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       id="booking-submit-btn"
                     >
                       <span>
