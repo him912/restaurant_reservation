@@ -24,6 +24,12 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
 
+    deviceID: {
+      type: String,
+      default: null,
+      index: true,
+    },
+
     resetToken: String,
     resetTokenExpiry: Date,
   },

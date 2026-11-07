@@ -4,10 +4,125 @@ const Profile = require("../models/Profile");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+const normalizeDeviceID = (value) => {
+  if (typeof value !== "string") return value;
+  return value.trim();
+};
+
+const sendFCMNotification = async ({
+  token,
+  title = "Welcome to restaurant reservation App",
+  body = "You can Book your Restaurant",
+  image,
+  data = {},
+}) => {
+  const cleanToken = normalizeDeviceID(token);
+
+  if (!cleanToken) {
+    return {
+      success: false,
+      message: "No device token provided",
+    };
+  }
+
+  const projectId = process.env.FCM_PROJECT_ID || "restaurantreservationapp-b1c5b";
+  const accessToken = process.env.FCM_ACCESS_TOKEN;
+
+  if (!accessToken) {
+    return {
+      success: false,
+      message: "FCM access token not configured",
+    };
+  }
+
+  try {
+    const payload = {
+      message: {
+        token: cleanToken,
+        notification: {
+          title,
+          body,
+          ...(image ? { image } : {}),
+        },
+        data: Object.fromEntries(
+          Object.entries(data).map(([key, value]) => [key, String(value)]),
+        ),
+        android: {
+          priority: "HIGH",
+          notification: {
+            sound: "default",
+            channel_id: "restaurant_reservation_channel",
+            ...(image ? { image } : {}),
+          },
+        },
+        apns: {
+          headers: {
+            "apns-priority": "10",
+          },
+          payload: {
+            aps: {
+              sound: "default",
+              badge: 1,
+              "mutable-content": 1,
+              "content-available": 1,
+            },
+          },
+          ...(image
+            ? {
+                fcm_options: { image },
+              }
+            : {}),
+        },
+      },
+    };
+    // console.log("Sending FCM notification with payload:", JSON.stringify(payload, null, 2));
+
+    // console.log(`Sending FCM notification to token: ${cleanToken}`);
+    // console.log(`FCM Project ID: ${projectId}`);
+    // console.log(`FCM Access Token: ${accessToken}`);
+
+
+
+    const response = await fetch(
+      `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      },
+    );
+
+    const result = await response.json().catch(() => ({}));
+    // console.log("FCM response:", result);
+
+    return {
+      success: response.ok,
+      status: response.status,
+      result,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message,
+    };
+  }
+};
+
 // ================= REGISTER =================
 const registerUser = async (req, res) => {
   try {
-    const { username, email, password , role = "user"} = req.body;
+    const {
+      username,
+      email,
+      password,
+      role = "user",
+      deviceID,
+      deviceId,
+    } = req.body;
+    const finalDeviceID = normalizeDeviceID(deviceID || deviceId);
 
     // Validation
     if (!username || !email || !password) {
@@ -44,11 +159,21 @@ const registerUser = async (req, res) => {
       email,
       password: hashedPassword,
       role,
+      ...(finalDeviceID ? { deviceID: finalDeviceID } : {}),
     });
 
     await Profile.create({
       user: user._id,
     });
+
+    if (finalDeviceID) {
+      await sendFCMNotification({
+        token: finalDeviceID,
+        title: "Welcome to restaurant reservation App",
+        body: "Your account has been created successfully.",
+        data: { type: "register", userId: user._id.toString() },
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -58,6 +183,7 @@ const registerUser = async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
+        deviceID: user.deviceID,
       },
     });
   } catch (error) {
@@ -71,7 +197,8 @@ const registerUser = async (req, res) => {
 // ================= REGISTER ADMIN =================
 const registerAdmin = async (req, res) => {
   try {
-    const { username, email, password, adminSecret } = req.body;
+    const { username, email, password, adminSecret, deviceID, deviceId } = req.body;
+    const finalDeviceID = normalizeDeviceID(deviceID || deviceId);
 
     if (!username || !email || !password || !adminSecret) {
       return res.status(400).json({
@@ -103,11 +230,21 @@ const registerAdmin = async (req, res) => {
       email,
       password: hashedPassword,
       role: "admin",
+      ...(finalDeviceID ? { deviceID: finalDeviceID } : {}),
     });
 
     await Profile.create({
       user: user._id,
     });
+
+    if (finalDeviceID) {
+      await sendFCMNotification({
+        token: finalDeviceID,
+        title: "Welcome to restaurant reservation App",
+        body: "Your admin account has been created successfully.",
+        data: { type: "register_admin", userId: user._id.toString() },
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -117,6 +254,7 @@ const registerAdmin = async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
+        deviceID: user.deviceID,
       },
     });
   } catch (error) {
@@ -130,7 +268,8 @@ const registerAdmin = async (req, res) => {
 // ================= LOGIN =================
 const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, deviceID, deviceId } = req.body;
+    const finalDeviceID = normalizeDeviceID(deviceID || deviceId);
 
     // Validation
     if (!email || !password) {
@@ -160,6 +299,20 @@ const loginUser = async (req, res) => {
       });
     }
 
+    if (finalDeviceID) {
+      if (!user.deviceID || user.deviceID !== finalDeviceID) {
+        user.deviceID = finalDeviceID;
+        await user.save();
+      }
+
+      await sendFCMNotification({
+        token: finalDeviceID,
+        title: "Welcome back",
+        body: "You have successfully logged in to the restaurant reservation app.",
+        data: { type: "login", userId: user._id.toString() },
+      });
+    }
+
     // Generate JWT
     const token = jwt.sign(
       {
@@ -182,6 +335,7 @@ const loginUser = async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
+        deviceID: user.deviceID,
       },
     });
   } catch (error) {
